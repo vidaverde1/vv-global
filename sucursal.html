@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carga Diaria — Sucursal</title>
+  <link rel="stylesheet" href="sucursal.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1714">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="VV Sucursal">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- Firebase compat: no usa módulos ES6, funciona abriendo el archivo directamente -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+  <script>
+    firebase.initializeApp({
+      apiKey:            "AIzaSyDLkPdZdzEK9Us70-V6etdFL1NFryMLcgQ",
+      authDomain:        "vv-global.firebaseapp.com",
+      databaseURL:       "https://vv-global-default-rtdb.firebaseio.com",
+      projectId:         "vv-global",
+      storageBucket:     "vv-global.firebasestorage.app",
+      messagingSenderId: "930531153099",
+      appId:             "1:930531153099:web:3ecab3f106d1138695774e"
+    });
+  </script>
+</head>
+<body>
+
+  <!-- PANTALLA 1: Configuración inicial -->
+  <div id="pantalla-seleccion">
+    <div class="sel-logo">Sistema de Carga · VV Global</div>
+    <h1 class="sel-title">Configuración inicial</h1>
+    <p class="sel-sub">Seleccioná la sucursal de esta PC — quedará guardada para siempre</p>
+    <div class="suc-grid" id="sucGrid"></div>
+  </div>
+
+  <!-- PANTALLA 2: Carga diaria -->
+  <div id="pantalla-carga" class="hidden">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="btn-cambiar" id="btn-cambiar">⚙ Cambiar sucursal</button>
+        <span class="suc-tag" id="suc-tag">—</span>
+      </div>
+      <div class="top-bar-right" id="fecha-hoy"></div>
+    </div>
+
+    <h1 class="page-title">Carga del día — <span id="suc-nombre"></span></h1>
+
+    <div id="firebase-error">
+      ⚠️ No se pudo conectar con Firebase. Revisá la conexión a internet.
+    </div>
+
+    <div class="layout">
+      <div class="form-card">
+        <div class="form-section-title ing">↑ Ingresos</div>
+        <div id="fields-ingresos"></div>
+
+        <div class="form-section-title eg" style="margin-top:20px">↓ Egresos</div>
+        <div id="fields-egresos"></div>
+
+        <div class="nota-wrap">
+          <label>Nota / Observación (opcional)</label>
+          <textarea id="nota" placeholder="Ej: cierre tarde, feriado, etc."></textarea>
+        </div>
+
+        <button class="btn-guardar" id="btn-guardar">Guardar Registro</button>
+      </div>
+
+      <div class="resumen-card">
+        <div class="form-section-title" style="color:var(--text)">Resumen de hoy</div>
+        <div class="totales-grid">
+          <div class="total-box">
+            <div class="t-label">Ingresos</div>
+            <div class="t-value" id="total-ing">$0</div>
+          </div>
+          <div class="total-box">
+            <div class="t-label">Egresos</div>
+            <div class="t-value" id="total-eg">$0</div>
+          </div>
+          <div class="total-box">
+            <div class="t-label" id="neto-label">Neto</div>
+            <div class="t-value" id="total-net">$0</div>
+          </div>
+        </div>
+        <div class="resumen-lista" id="resumen-lista">
+          <div class="empty-state">Conectando con Firebase...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="sucursal.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js");
+    }
+  </script>
+</body>
+</html>

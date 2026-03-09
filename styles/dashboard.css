@@ -1,0 +1,317 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #f5f2eb;
+  --surface: #ffffff;
+  --surface2: #f0ede6;
+  --border: #ddd9d0;
+  --text: #1a1714;
+  --muted: #8a8178;
+  --green: #1a7a4a;
+  --red: #c0392b;
+  --accent: #c17f2a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  padding: 24px;
+}
+
+/* ---- HEADER ---- */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border);
+}
+
+.header-logo {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.header h1 {
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.header-right { text-align: right; }
+
+.reloj {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.fecha-hoy {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ---- LIVE BADGE ---- */
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(26,122,74,0.08);
+  border: 1px solid rgba(26,122,74,0.3);
+  color: var(--green);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .4; transform: scale(.7); }
+}
+
+/* ---- GLOBAL BOXES ---- */
+.global-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.global-box {
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 14px;
+  padding: 20px 24px;
+  text-align: center;
+}
+
+.global-box .g-label {
+  font-size: 0.62rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  opacity: 0.5;
+  margin-bottom: 6px;
+}
+
+.global-box .g-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.8rem;
+  font-weight: 500;
+}
+
+/* ---- SECTION TITLE ---- */
+.section-title {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ---- KPI SUCURSALES ---- */
+.suc-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.suc-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.suc-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+}
+
+.suc-card[data-suc="NAZCA"]::before    { background: #e8a838; }
+.suc-card[data-suc="OLAZABAL"]::before { background: #3a8fd4; }
+.suc-card[data-suc="CUENCA"]::before   { background: #5cc98a; }
+.suc-card[data-suc="BEIRO"]::before    { background: #d45a5a; }
+.suc-card[data-suc="GOYENA"]::before   { background: #9b6bd4; }
+
+.suc-name {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.suc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.suc-row .sr-label { font-size: 0.68rem; color: var(--muted); }
+
+.suc-row .sr-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.suc-row .sr-val.ing { color: var(--green); }
+.suc-row .sr-val.eg  { color: var(--red); }
+.suc-row .sr-val.net { font-weight: 600; }
+
+.suc-regs {
+  margin-top: 8px;
+  font-size: 0.65rem;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ---- LAYOUT GRÁFICOS ---- */
+.main-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.chart-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.chart-label {
+  font-size: 0.62rem;
+  letter-spacing: 2px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.chart-title-text {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.charts-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* ---- FEED ---- */
+.feed-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.feed-header {
+  font-size: 0.62rem;
+  letter-spacing: 2px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.feed-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--surface2);
+}
+
+.feed-item:last-child { border-bottom: none; }
+
+.feed-suc {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.feed-info { flex: 1; }
+
+.feed-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  display: block;
+}
+
+.feed-nota {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.feed-nums {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+}
+
+.feed-ing { color: var(--green); }
+.feed-eg  { color: var(--red); }
+
+.empty-st {
+  text-align: center;
+  color: var(--muted);
+  padding: 40px 0;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+@media (max-width: 1100px) {
+  .suc-grid { grid-template-columns: repeat(3, 1fr); }
+  .main-layout, .charts-row2 { grid-template-columns: 1fr; }
+  .global-row { grid-template-columns: 1fr 1fr 1fr; }
+}

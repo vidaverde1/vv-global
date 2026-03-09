@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Global — VV Global</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1714">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="VV Dashboard">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <!-- Firebase compat: no usa módulos ES6, funciona abriendo el archivo directamente -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+  <script>
+    firebase.initializeApp({
+      apiKey:            "AIzaSyDLkPdZdzEK9Us70-V6etdFL1NFryMLcgQ",
+      authDomain:        "vv-global.firebaseapp.com",
+      databaseURL:       "https://vv-global-default-rtdb.firebaseio.com",
+      projectId:         "vv-global",
+      storageBucket:     "vv-global.firebasestorage.app",
+      messagingSenderId: "930531153099",
+      appId:             "1:930531153099:web:3ecab3f106d1138695774e"
+    });
+  </script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <div class="header-logo">VV Global · Sistema de Gestión</div>
+      <div class="live-badge"><span class="live-dot"></span>En vivo</div>
+      <h1>Dashboard Global</h1>
+    </div>
+    <div class="header-right">
+      <div class="reloj" id="reloj">--:--:--</div>
+      <div class="fecha-hoy" id="fecha-hoy"></div>
+    </div>
+  </div>
+
+  <!-- TOTALES GLOBALES HOY -->
+  <div class="section-title">Totales globales — hoy</div>
+  <div class="global-row">
+    <div class="global-box">
+      <div class="g-label">Ingresos del día</div>
+      <div class="g-val" id="global-ing" style="color:#5cc98a">$0</div>
+    </div>
+    <div class="global-box">
+      <div class="g-label">Egresos del día</div>
+      <div class="g-val" id="global-eg" style="color:#d45a5a">$0</div>
+    </div>
+    <div class="global-box">
+      <div class="g-label">Resultado Neto</div>
+      <div class="g-val" id="global-net">$0</div>
+    </div>
+  </div>
+
+  <!-- KPIs POR SUCURSAL -->
+  <div class="section-title">Por sucursal — hoy</div>
+  <div class="suc-grid">
+    <div class="suc-card" data-suc="NAZCA">
+      <div class="suc-name">Nazca</div>
+      <div class="suc-row"><span class="sr-label">Ingresos</span><span class="sr-val ing" id="kpi-ing-NAZCA">$0</span></div>
+      <div class="suc-row"><span class="sr-label">Egresos</span><span class="sr-val eg"  id="kpi-eg-NAZCA">$0</span></div>
+      <div class="suc-row"><span class="sr-label">Neto</span><span class="sr-val net"     id="kpi-net-NAZCA">$0</span></div>
+      <div class="suc-regs" id="kpi-regs-NAZCA">0 cargas</div>
+    </div>
+    <div class="suc-card" data-suc="OLAZABAL">
+      <div class="suc-name">Olazabal</div>
+      <div class="suc-row"><span class="sr-label">Ingresos</span><span class="sr-val ing" id="kpi-ing-OLAZABAL">$0</span></div>
+      <div class="suc-row"><span class="sr-label">Egresos</span><span class="sr-val eg"  id="kpi-eg-OLAZABAL">$0</span></div>
+      <div class="suc-row"><span class="sr-label">Neto</span><span class="sr-val net"     id="kpi-net-OLAZABAL">$0</span></div>
+      <div class="suc-regs" id="kpi-regs-OLAZABAL">0 cargas</div>
+    </div>
+    <div class="suc-card" data-suc="CUENCA">
+      <div class="suc-name">Cuenca</div>
+      <div class="suc-row"><span class="sr-label">Ingresos</span><span class="sr-val ing" id="kpi-ing-CUENCA">$0</span></div>
+      <div class="suc-row"><span class="sr-label">Egresos</span><span class="sr-val eg"  id="kpi-eg-CUENCA">$0</span></div>
+      <div class="suc-row"><span class="sr-label">Neto</span><span class="sr-val net"     id="kpi-net-CUENCA">$0</span></div>
+      <div class="suc-regs" id="kpi-regs-CUENCA">0 cargas</div>
+    </div>
+    <div class="suc-card" data-suc="BEIRO">
+      <div class="suc-name">Beiro</div>
+      <div class="suc-row"><span class="sr-label">Ingresos</span><span class="sr-val ing" id="kpi-ing-BEIRO">$0</span></div>
+      <div class="suc-row"><span class="sr-label">Egresos</span><span class="sr-val eg"  id="kpi-eg-BEIRO">$0</span></div>
+      <div class="suc-row"><span class="sr-label">Neto</span><span class="sr-val net"     id="kpi-net-BEIRO">$0</span></div>
+      <div class="suc-regs" id="kpi-regs-BEIRO">0 cargas</div>
+    </div>
+    <div class="suc-card" data-suc="GOYENA">
+      <div class="suc-name">Goyena</div>
+      <div class="suc-row"><span class="sr-label">Ingresos</span><span class="sr-val ing" id="kpi-ing-GOYENA">$0</span></div>
+      <div class="suc-row"><span class="sr-label">Egresos</span><span class="sr-val eg"  id="kpi-eg-GOYENA">$0</span></div>
+      <div class="suc-row"><span class="sr-label">Neto</span><span class="sr-val net"     id="kpi-net-GOYENA">$0</span></div>
+      <div class="suc-regs" id="kpi-regs-GOYENA">0 cargas</div>
+    </div>
+  </div>
+
+  <!-- GRÁFICOS MES ACTUAL -->
+  <div class="section-title" id="mes-label">MES ACTUAL</div>
+  <div class="main-layout">
+    <div class="chart-card">
+      <div class="chart-label">Evolución</div>
+      <div class="chart-title-text">Ingresos diarios por sucursal</div>
+      <canvas id="chart-linea" height="110"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-label">Participación</div>
+      <div class="chart-title-text">% del mes</div>
+      <canvas id="chart-donut" height="200"></canvas>
+    </div>
+  </div>
+
+  <div class="charts-row2">
+    <div class="chart-card">
+      <div class="chart-label">Ranking</div>
+      <div class="chart-title-text">Total acumulado por sucursal</div>
+      <canvas id="chart-barras" height="180"></canvas>
+    </div>
+    <div class="feed-card">
+      <div class="feed-header">⚡ Últimas cargas en tiempo real</div>
+      <div id="ultimos-regs">
+        <div class="empty-st">Esperando registros...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js");
+    }
+  </script>
+</body>
+</html>
