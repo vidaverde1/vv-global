@@ -126,13 +126,14 @@ function goToSection(sec) {
   document.querySelector("[data-section='" + sec + "']").classList.add("active");
   sectionActual = sec;
 
-  var titles = { home:"Dashboard", objetivos:"Objetivos", medios:"Medios de Pago", egresos:"Egresos", historial:"Historial" };
+  var titles = { home:"Dashboard", objetivos:"Objetivos", medios:"Medios de Pago", egresos:"Egresos", merma:"Merma", historial:"Historial" };
   document.getElementById("section-title").textContent = titles[sec] || sec;
 
   // Renderizar la sección al entrar
   if (sec === "objetivos")  renderObjetivos();
   if (sec === "medios")     renderMedios(periodMedios);
   if (sec === "egresos")    renderEgresos(periodEgresos);
+  if (sec === "merma")      renderMerma();
   if (sec === "historial")  renderHistorial(periodHist);
 }
 
@@ -266,24 +267,74 @@ function renderChartsHome() {
 }
 
 // ===================== SECCIÓN: OBJETIVOS =====================
+
+// Calcula días hábiles (lunes a sábado) restantes en el mes desde mañana
+function calcDiasHabiles() {
+  var hoy     = new Date();
+  var anio    = hoy.getFullYear();
+  var mes     = hoy.getMonth();
+  var ultimo  = new Date(anio, mes + 1, 0).getDate(); // último día del mes
+  var transcurridos = 0; // hábiles ya pasados (incluyendo hoy)
+  var restantes     = 0; // hábiles que faltan (desde mañana)
+  var totales       = 0; // hábiles totales del mes
+
+  for (var d = 1; d <= ultimo; d++) {
+    var dia = new Date(anio, mes, d).getDay(); // 0=dom, 6=sab
+    if (dia === 0) continue; // saltar domingos
+    totales++;
+    if (d <= hoy.getDate()) transcurridos++;
+    else                    restantes++;
+  }
+  return { transcurridos: transcurridos, restantes: restantes, totales: totales };
+}
+
 function renderObjetivos() {
   var obj   = getObjetivos();
   var mes   = mesActual();
   var dias  = diasDeMes(mes);
   var cont  = document.getElementById("obj-cards");
+  var habil = calcDiasHabiles();
   cont.innerHTML = "";
 
   SUCURSALES.forEach(function(suc) {
-    var acum = dias.reduce(function(a,f){return a+sumField(f,suc,"totalIngresos");},0);
-    var meta = obj[suc] || 0;
-    var pct  = meta > 0 ? Math.min((acum/meta)*100, 100) : 0;
-    var pctReal = meta > 0 ? ((acum/meta)*100).toFixed(1) : "0.0";
-    var color = COLORS[suc];
+    var acum     = dias.reduce(function(a,f){return a+sumField(f,suc,"totalIngresos");},0);
+    var meta     = obj[suc] || 0;
+    var falta    = Math.max(meta - acum, 0);
+    var pct      = meta > 0 ? Math.min((acum/meta)*100, 100) : 0;
+    var pctReal  = meta > 0 ? ((acum/meta)*100).toFixed(1) : "0.0";
     var barColor = pct >= 80 ? "var(--green)" : pct >= 50 ? "#f0a500" : "var(--red)";
+
+    // Promedio diario requerido para llegar al objetivo con los días hábiles restantes
+    var promReq = (habil.restantes > 0 && falta > 0)
+      ? falta / habil.restantes
+      : 0;
+    // Promedio diario real hasta hoy (solo días transcurridos hábiles)
+    var promReal = habil.transcurridos > 0 ? acum / habil.transcurridos : 0;
+    // Si ya se cumplió el objetivo
+    var yaAlcanzo = acum >= meta && meta > 0;
 
     var card = document.createElement("div");
     card.className = "obj-card";
     card.setAttribute("data-suc", suc);
+
+    var promHtml;
+    if (yaAlcanzo) {
+      promHtml = '<div class="obj-prom-row obj-prom-ok">✓ Objetivo alcanzado</div>';
+    } else if (habil.restantes === 0) {
+      promHtml = '<div class="obj-prom-row obj-prom-warn">Sin días hábiles restantes</div>';
+    } else {
+      var promColor = promReq <= promReal ? "var(--green)" : promReq <= promReal * 1.3 ? "#f0a500" : "var(--red)";
+      promHtml =
+        '<div class="obj-prom-row">' +
+          '<span class="obj-prom-label">Promedio requerido / día hábil</span>' +
+          '<span class="obj-prom-val" style="color:' + promColor + '">' + fmtFull(Math.ceil(promReq)) + '</span>' +
+        '</div>' +
+        '<div class="obj-prom-sub">' +
+          '<span>' + habil.restantes + ' días hábiles restantes</span>' +
+          '<span>Prom. real: ' + fmtM(Math.round(promReal)) + '/día</span>' +
+        '</div>';
+    }
+
     card.innerHTML =
       '<div class="obj-top">' +
         '<span class="obj-suc-name">' + suc + '</span>' +
@@ -293,7 +344,8 @@ function renderObjetivos() {
       '<div class="obj-nums">' +
         '<span class="obj-acum">' + fmtFull(acum) + '</span>' +
         '<span class="obj-meta">Obj: ' + fmtFull(meta) + '</span>' +
-      '</div>';
+      '</div>' +
+      promHtml;
     cont.appendChild(card);
   });
 }
@@ -462,7 +514,141 @@ function initToggleEgresos() {
   });
 }
 
-// ===================== SECCIÓN: HISTORIAL =====================
+// ===================== SECCIÓN: MERMA =====================
+var MOTIVOS_MERMA = {
+  vencimiento: "Vencimiento",
+  deterioro:   "Deterioro",
+  rotura:      "Rotura",
+  robo:        "Robo / faltante",
+  otros:       "Otros"
+};
+
+function getMermaRegs(fecha, suc) {
+  var regs = (allData[fecha] && allData[fecha][suc]) ? allData[fecha][suc] : [];
+  return regs.filter(function(r){ return r.tipo === "merma"; });
+}
+
+function renderMerma() {
+  var mes        = mesActual();
+  var fechasMes  = diasDeMes(mes);
+  var strip      = document.getElementById("merma-global-strip");
+  var detCont    = document.getElementById("merma-detalle");
+  strip.innerHTML   = "";
+  detCont.innerHTML = "";
+
+  // Totales globales
+  var totalGlobal    = 0;
+  var totalPorMotivo = {};
+  Object.keys(MOTIVOS_MERMA).forEach(function(k){ totalPorMotivo[k] = 0; });
+
+  var totalesPorSuc  = {};
+  SUCURSALES.forEach(function(suc){ totalesPorSuc[suc] = 0; });
+
+  fechasMes.forEach(function(f) {
+    SUCURSALES.forEach(function(suc) {
+      getMermaRegs(f, suc).forEach(function(r) {
+        var t = r.totalMerma || 0;
+        totalGlobal         += t;
+        totalesPorSuc[suc]  += t;
+        (r.items || []).forEach(function(item) {
+          if (totalPorMotivo[item.motivo] !== undefined) {
+            totalPorMotivo[item.motivo] += item.total || 0;
+          } else {
+            totalPorMotivo["otros"] += item.total || 0;
+          }
+        });
+      });
+    });
+  });
+
+  // Strip global
+  var stripHtml =
+    '<div class="merma-strip-card merma-strip-total">' +
+      '<div class="ms-label">Total mes</div>' +
+      '<div class="ms-val">' + fmtM(totalGlobal) + '</div>' +
+    '</div>';
+  SUCURSALES.forEach(function(suc) {
+    var pct = totalGlobal > 0 ? (totalesPorSuc[suc] / totalGlobal * 100).toFixed(1) : "0.0";
+    var c   = COLORS[suc];
+    stripHtml +=
+      '<div class="merma-strip-card">' +
+        '<div class="ms-suc" style="color:' + c + '">' + suc + '</div>' +
+        '<div class="ms-val">' + fmtM(totalesPorSuc[suc]) + '</div>' +
+        '<div class="ms-pct">' + pct + '%</div>' +
+      '</div>';
+  });
+  strip.innerHTML = stripHtml;
+
+  if (!totalGlobal) {
+    detCont.innerHTML = '<div class="empty-st" style="padding:40px 0">Sin registros de merma este mes.</div>';
+    return;
+  }
+
+  // Detalle por sucursal
+  SUCURSALES.forEach(function(suc) {
+    if (!totalesPorSuc[suc]) return;
+
+    // Recolectar todos los ítems del mes para esta sucursal
+    var itemsAgrup = {}; // producto -> { cantidad, total, motivos[] }
+    var registros  = []; // para el desglose cronológico
+
+    fechasMes.forEach(function(f) {
+      getMermaRegs(f, suc).forEach(function(r) {
+        (r.items || []).forEach(function(item) {
+          var key = item.producto;
+          if (!itemsAgrup[key]) itemsAgrup[key] = { cantidad: 0, total: 0, motivos: {} };
+          itemsAgrup[key].cantidad += item.cantidad || 0;
+          itemsAgrup[key].total    += item.total    || 0;
+          var mot = item.motivo || "otros";
+          itemsAgrup[key].motivos[mot] = (itemsAgrup[key].motivos[mot] || 0) + (item.cantidad || 0);
+        });
+        registros.push({ fecha: f, reg: r });
+      });
+    });
+
+    var card = document.createElement("div");
+    card.className = "merma-suc-card";
+    card.setAttribute("data-suc", suc);
+
+    var c = COLORS[suc];
+
+    // Tabla de productos agrupados
+    var rows = "";
+    Object.keys(itemsAgrup)
+      .sort(function(a,b){ return itemsAgrup[b].total - itemsAgrup[a].total; })
+      .forEach(function(prod) {
+        var it     = itemsAgrup[prod];
+        var pct    = totalesPorSuc[suc] > 0 ? (it.total / totalesPorSuc[suc] * 100) : 0;
+        var motTop = Object.keys(it.motivos).sort(function(a,b){ return it.motivos[b]-it.motivos[a]; })[0];
+        rows +=
+          '<tr>' +
+            '<td class="merma-td-prod">' + prod + '</td>' +
+            '<td class="merma-td-num">' + it.cantidad + ' u.</td>' +
+            '<td class="merma-td-motivo">' + (MOTIVOS_MERMA[motTop] || motTop) + '</td>' +
+            '<td class="merma-td-tot">' + fmtM(it.total) + '</td>' +
+            '<td class="merma-td-bar"><div class="merma-mini-bar"><div style="width:' + pct + '%;background:' + c + '"></div></div></td>' +
+          '</tr>';
+      });
+
+    card.innerHTML =
+      '<div class="merma-suc-header">' +
+        '<span class="merma-suc-name" style="color:' + c + '">' + suc + '</span>' +
+        '<span class="merma-suc-total">' + fmtFull(totalesPorSuc[suc]) + '</span>' +
+      '</div>' +
+      '<div class="merma-tabla-wrap">' +
+        '<table class="merma-tabla">' +
+          '<thead><tr>' +
+            '<th>Producto</th><th>Cant.</th><th>Motivo</th><th>Total</th><th></th>' +
+          '</tr></thead>' +
+          '<tbody>' + rows + '</tbody>' +
+        '</table>' +
+      '</div>';
+
+    detCont.appendChild(card);
+  });
+}
+
+
 function renderHistorial(period) {
   periodHist = period;
   var mes = mesActual();
@@ -580,6 +766,7 @@ function initFirebase() {
     if (sectionActual === "objetivos") renderObjetivos();
     if (sectionActual === "medios")    renderMedios(periodMedios);
     if (sectionActual === "egresos")   renderEgresos(periodEgresos);
+    if (sectionActual === "merma")     renderMerma();
     if (sectionActual === "historial") renderHistorial(periodHist);
   });
 }

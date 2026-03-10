@@ -41,6 +41,7 @@
       <li class="menu-item" data-section="objetivos"><span class="menu-icon">◎</span>Objetivos</li>
       <li class="menu-item" data-section="medios"><span class="menu-icon">◈</span>Medios de Pago</li>
       <li class="menu-item" data-section="egresos"><span class="menu-icon">◑</span>Egresos</li>
+      <li class="menu-item" data-section="merma"><span class="menu-icon">◫</span>Merma</li>
       <li class="menu-item" data-section="historial"><span class="menu-icon">◷</span>Historial</li>
     </ul>
     <div class="sidebar-footer">
@@ -147,6 +148,14 @@
       <div id="egresos-detalle"></div>
     </section>
 
+    <!-- MERMA -->
+    <section class="section" id="section-merma">
+      <div class="section-desc">Mercadería perdida, vencida o deteriorada — mes actual</div>
+      <div class="merma-global-strip" id="merma-global-strip"></div>
+      <div class="block-title">Detalle por sucursal</div>
+      <div id="merma-detalle"></div>
+    </section>
+
     <!-- HISTORIAL -->
     <section class="section" id="section-historial">
       <div class="section-desc">Evolución y comparación histórica</div>
@@ -170,7 +179,7 @@
   <script src="js/dashboard.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/vv-global/sw.js");
+      navigator.serviceWorker.register("/vv-global/js/sw.js");
     }
   </script>
 </body>

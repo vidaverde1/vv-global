@@ -771,3 +771,175 @@ body {
 @media (min-width: 900px) {
   .suc-grid { grid-template-columns: repeat(5,1fr); }
 }
+
+/* ===================== OBJETIVOS: PROMEDIO DIARIO ===================== */
+.obj-prom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  gap: 8px;
+}
+.obj-prom-label {
+  font-size: .68rem;
+  color: var(--muted2);
+  letter-spacing: .3px;
+}
+.obj-prom-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .82rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.obj-prom-sub {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: .65rem;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  padding: 0 2px;
+}
+.obj-prom-ok {
+  justify-content: center;
+  color: var(--green);
+  font-weight: 700;
+  font-size: .75rem;
+  letter-spacing: .5px;
+  border-color: var(--green);
+  background: var(--green-dim);
+}
+.obj-prom-warn {
+  justify-content: center;
+  color: #f0a500;
+  font-weight: 600;
+  font-size: .72rem;
+  border-color: #f0a50030;
+}
+
+/* ===================== MERMA — SECCIÓN ===================== */
+.merma-global-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.merma-strip-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 13px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.merma-strip-card.merma-strip-total {
+  border-color: #f59e0b44;
+  background: #f59e0b08;
+}
+.ms-label {
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ms-suc {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.ms-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .92rem;
+  font-weight: 700;
+  color: #f59e0b;
+}
+.ms-pct {
+  font-size: .65rem;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* MERMA CARDS POR SUCURSAL */
+.merma-suc-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.merma-suc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+}
+.merma-suc-name {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.merma-suc-total {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .85rem;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.merma-tabla-wrap { overflow-x: auto; }
+
+.merma-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .78rem;
+}
+.merma-tabla thead tr {
+  background: var(--bg3);
+}
+.merma-tabla th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.merma-tabla td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.merma-tabla tbody tr:last-child td { border-bottom: none; }
+.merma-tabla tbody tr:hover td { background: var(--bg3); }
+
+.merma-td-prod  { font-weight: 600; color: var(--text); }
+.merma-td-num   { font-family: 'JetBrains Mono', monospace; color: var(--muted2); white-space: nowrap; }
+.merma-td-motivo { font-size: .72rem; color: var(--muted2); }
+.merma-td-tot   { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #f59e0b; white-space: nowrap; }
+.merma-td-bar   { width: 80px; }
+
+.merma-mini-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.merma-mini-bar div {
+  height: 100%;
+  border-radius: 2px;
+  transition: width .5s ease;
+}
