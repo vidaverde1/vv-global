@@ -4,18 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Carga Diaria — Sucursal</title>
-  <link rel="stylesheet" href="styles/sucursal.css">
+  <link rel="stylesheet" href="stylesucursal.css">
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#1a1714">
+  <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="VV Sucursal">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
 
-  <!-- Firebase compat: no usa módulos ES6, funciona abriendo el archivo directamente -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-
   <script>
     firebase.initializeApp({
       apiKey:            "AIzaSyDLkPdZdzEK9Us70-V6etdFL1NFryMLcgQ",
@@ -30,65 +28,106 @@
 </head>
 <body>
 
-  <!-- PANTALLA 1: Configuración inicial -->
+  <!-- PANTALLA 1: Selección de sucursal -->
   <div id="pantalla-seleccion">
-    <div class="sel-logo">Sistema de Carga · VV Global</div>
+    <div class="sel-eyebrow">Sistema de Carga · VV Global</div>
     <h1 class="sel-title">Configuración inicial</h1>
-    <p class="sel-sub">Seleccioná la sucursal de esta PC — quedará guardada para siempre</p>
+    <p class="sel-sub">Seleccioná la sucursal de esta PC</p>
     <div class="suc-grid" id="sucGrid"></div>
   </div>
 
   <!-- PANTALLA 2: Carga diaria -->
   <div id="pantalla-carga" class="hidden">
-    <div class="top-bar">
-      <div class="top-bar-left">
-        <button class="btn-cambiar" id="btn-cambiar">⚙ Cambiar sucursal</button>
-        <span class="suc-tag" id="suc-tag">—</span>
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <span class="suc-badge" id="suc-badge">—</span>
+        <button class="btn-cambiar" id="btn-cambiar">⚙ Cambiar</button>
       </div>
-      <div class="top-bar-right" id="fecha-hoy"></div>
+      <div class="topbar-fecha" id="fecha-hoy"></div>
     </div>
 
-    <h1 class="page-title">Carga del día — <span id="suc-nombre"></span></h1>
+    <div class="carga-inner">
+      <h1 class="page-title">Carga del día — <span id="suc-nombre"></span></h1>
 
-    <div id="firebase-error">
-      ⚠️ No se pudo conectar con Firebase. Revisá la conexión a internet.
-    </div>
-
-    <div class="layout">
-      <div class="form-card">
-        <div class="form-section-title ing">↑ Ingresos</div>
-        <div id="fields-ingresos"></div>
-
-        <div class="form-section-title eg" style="margin-top:20px">↓ Egresos</div>
-        <div id="fields-egresos"></div>
-
-        <div class="nota-wrap">
-          <label>Nota / Observación (opcional)</label>
-          <textarea id="nota" placeholder="Ej: cierre tarde, feriado, etc."></textarea>
-        </div>
-
-        <button class="btn-guardar" id="btn-guardar">Guardar Registro</button>
+      <div id="firebase-error">
+        ⚠️ No se pudo conectar con Firebase. Revisá la conexión a internet.
       </div>
 
-      <div class="resumen-card">
-        <div class="form-section-title" style="color:var(--text)">Resumen de hoy</div>
-        <div class="totales-grid">
-          <div class="total-box">
-            <div class="t-label">Ingresos</div>
-            <div class="t-value" id="total-ing">$0</div>
+      <div class="layout">
+
+        <!-- FORMULARIO -->
+        <div class="form-card">
+
+          <!-- INGRESOS -->
+          <div class="section-label ing">↑ Ingresos</div>
+          <div id="fields-ingresos"></div>
+
+          <!-- EGRESOS -->
+          <div class="section-label eg" style="margin-top:18px">↓ Egresos</div>
+
+          <!-- Adder de egresos -->
+          <div class="egreso-adder">
+            <div class="egreso-row1">
+              <div class="select-wrap">
+                <select id="eg-categoria">
+                  <option value="">— Categoría —</option>
+                  <option value="proveedores">Proveedores</option>
+                  <option value="servicios">Servicios</option>
+                  <option value="alquiler">Alquiler</option>
+                  <option value="insumos">Insumos</option>
+                  <option value="retiro">Retiro</option>
+                  <option value="otros">Otros</option>
+                </select>
+              </div>
+              <div class="egreso-monto-wrap">
+                <span class="prefix">$</span>
+                <input type="number" id="eg-monto" min="0" step="1" placeholder="0">
+              </div>
+            </div>
+            <div class="detalle-wrap">
+              <input type="text" id="eg-detalle" placeholder="Detalle del movimiento (opcional)">
+            </div>
+            <button class="btn-add-egreso" id="btn-add-egreso">+ Agregar egreso</button>
           </div>
-          <div class="total-box">
-            <div class="t-label">Egresos</div>
-            <div class="t-value" id="total-eg">$0</div>
+
+          <!-- Lista acumulada de egresos -->
+          <div class="egresos-lista" id="egresos-lista">
+            <div class="egresos-empty" id="egresos-empty">Sin egresos cargados</div>
           </div>
-          <div class="total-box">
-            <div class="t-label" id="neto-label">Neto</div>
-            <div class="t-value" id="total-net">$0</div>
+
+          <!-- Nota general -->
+          <div class="nota-wrap">
+            <label>Nota general (opcional)</label>
+            <textarea id="nota" placeholder="Ej: cierre tarde, feriado, etc."></textarea>
+          </div>
+
+          <button class="btn-guardar" id="btn-guardar">Guardar Registro</button>
+        </div>
+
+        <!-- RESUMEN DEL DÍA -->
+        <div class="resumen-card">
+          <div class="section-label" style="color:var(--text);border-color:var(--border2)">Resumen de hoy</div>
+          <div class="totales-grid">
+            <div class="total-box">
+              <div class="t-label">Ingresos</div>
+              <div class="t-value" id="total-ing">$0</div>
+            </div>
+            <div class="total-box">
+              <div class="t-label">Egresos</div>
+              <div class="t-value" id="total-eg">$0</div>
+            </div>
+            <div class="total-box">
+              <div class="t-label" id="neto-label">Neto</div>
+              <div class="t-value" id="total-net">$0</div>
+            </div>
+          </div>
+          <div class="resumen-lista" id="resumen-lista">
+            <div class="empty-state">Conectando con Firebase...</div>
           </div>
         </div>
-        <div class="resumen-lista" id="resumen-lista">
-          <div class="empty-state">Conectando con Firebase...</div>
-        </div>
+
       </div>
     </div>
   </div>
@@ -98,7 +137,7 @@
   <script src="js/sucursal.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("js/sw.js");
+      navigator.serviceWorker.register("/vv-global/sw.js");
     }
   </script>
 </body>

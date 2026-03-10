@@ -6,17 +6,14 @@
   <title>Dashboard Global — VV Global</title>
   <link rel="stylesheet" href="styles/dashboard.css">
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#1a1714">
+  <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="VV Dashboard">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-
-  <!-- Firebase compat: no usa módulos ES6, funciona abriendo el archivo directamente -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-
   <script>
     firebase.initializeApp({
       apiKey:            "AIzaSyDLkPdZdzEK9Us70-V6etdFL1NFryMLcgQ",
@@ -31,109 +28,149 @@
 </head>
 <body>
 
-  <!-- HEADER -->
-  <div class="header">
-    <div>
-      <div class="header-logo">VV Global · Sistema de Gestión</div>
-      <div class="live-badge"><span class="live-dot"></span>En vivo</div>
-      <h1>Dashboard Global</h1>
-    </div>
-    <div class="header-right">
-      <div class="reloj" id="reloj">--:--:--</div>
-      <div class="fecha-hoy" id="fecha-hoy"></div>
-    </div>
-  </div>
+  <div class="nav-overlay" id="nav-overlay"></div>
 
-  <!-- TOTALES GLOBALES HOY -->
-  <div class="section-title">Totales globales — hoy</div>
-  <div class="global-row">
-    <div class="global-box">
-      <div class="g-label">Ingresos del día</div>
-      <div class="g-val" id="global-ing" style="color:#5cc98a">$0</div>
+  <!-- MENÚ LATERAL -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">VV<span>GLOBAL</span></div>
+      <button class="sidebar-close" id="sidebar-close">✕</button>
     </div>
-    <div class="global-box">
-      <div class="g-label">Egresos del día</div>
-      <div class="g-val" id="global-eg" style="color:#d45a5a">$0</div>
+    <ul class="sidebar-menu">
+      <li class="menu-item active" data-section="home"><span class="menu-icon">⬡</span>Dashboard</li>
+      <li class="menu-item" data-section="objetivos"><span class="menu-icon">◎</span>Objetivos</li>
+      <li class="menu-item" data-section="medios"><span class="menu-icon">◈</span>Medios de Pago</li>
+      <li class="menu-item" data-section="egresos"><span class="menu-icon">◑</span>Egresos</li>
+      <li class="menu-item" data-section="historial"><span class="menu-icon">◷</span>Historial</li>
+    </ul>
+    <div class="sidebar-footer">
+      <span class="live-dot"></span><span>En vivo · Firebase</span>
     </div>
-    <div class="global-box">
-      <div class="g-label">Resultado Neto</div>
-      <div class="g-val" id="global-net">$0</div>
-    </div>
-  </div>
+  </nav>
 
-  <!-- KPIs POR SUCURSAL -->
-  <div class="section-title">Por sucursal — hoy</div>
-  <div class="suc-grid">
-    <div class="suc-card" data-suc="NAZCA">
-      <div class="suc-name">Nazca</div>
-      <div class="suc-row"><span class="sr-label">Ingresos</span><span class="sr-val ing" id="kpi-ing-NAZCA">$0</span></div>
-      <div class="suc-row"><span class="sr-label">Egresos</span><span class="sr-val eg"  id="kpi-eg-NAZCA">$0</span></div>
-      <div class="suc-row"><span class="sr-label">Neto</span><span class="sr-val net"     id="kpi-net-NAZCA">$0</span></div>
-      <div class="suc-regs" id="kpi-regs-NAZCA">0 cargas</div>
-    </div>
-    <div class="suc-card" data-suc="OLAZABAL">
-      <div class="suc-name">Olazabal</div>
-      <div class="suc-row"><span class="sr-label">Ingresos</span><span class="sr-val ing" id="kpi-ing-OLAZABAL">$0</span></div>
-      <div class="suc-row"><span class="sr-label">Egresos</span><span class="sr-val eg"  id="kpi-eg-OLAZABAL">$0</span></div>
-      <div class="suc-row"><span class="sr-label">Neto</span><span class="sr-val net"     id="kpi-net-OLAZABAL">$0</span></div>
-      <div class="suc-regs" id="kpi-regs-OLAZABAL">0 cargas</div>
-    </div>
-    <div class="suc-card" data-suc="CUENCA">
-      <div class="suc-name">Cuenca</div>
-      <div class="suc-row"><span class="sr-label">Ingresos</span><span class="sr-val ing" id="kpi-ing-CUENCA">$0</span></div>
-      <div class="suc-row"><span class="sr-label">Egresos</span><span class="sr-val eg"  id="kpi-eg-CUENCA">$0</span></div>
-      <div class="suc-row"><span class="sr-label">Neto</span><span class="sr-val net"     id="kpi-net-CUENCA">$0</span></div>
-      <div class="suc-regs" id="kpi-regs-CUENCA">0 cargas</div>
-    </div>
-    <div class="suc-card" data-suc="BEIRO">
-      <div class="suc-name">Beiro</div>
-      <div class="suc-row"><span class="sr-label">Ingresos</span><span class="sr-val ing" id="kpi-ing-BEIRO">$0</span></div>
-      <div class="suc-row"><span class="sr-label">Egresos</span><span class="sr-val eg"  id="kpi-eg-BEIRO">$0</span></div>
-      <div class="suc-row"><span class="sr-label">Neto</span><span class="sr-val net"     id="kpi-net-BEIRO">$0</span></div>
-      <div class="suc-regs" id="kpi-regs-BEIRO">0 cargas</div>
-    </div>
-    <div class="suc-card" data-suc="GOYENA">
-      <div class="suc-name">Goyena</div>
-      <div class="suc-row"><span class="sr-label">Ingresos</span><span class="sr-val ing" id="kpi-ing-GOYENA">$0</span></div>
-      <div class="suc-row"><span class="sr-label">Egresos</span><span class="sr-val eg"  id="kpi-eg-GOYENA">$0</span></div>
-      <div class="suc-row"><span class="sr-label">Neto</span><span class="sr-val net"     id="kpi-net-GOYENA">$0</span></div>
-      <div class="suc-regs" id="kpi-regs-GOYENA">0 cargas</div>
-    </div>
-  </div>
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+    <div class="topbar-center" id="section-title">Dashboard</div>
+    <div class="reloj" id="reloj">--:--</div>
+  </header>
 
-  <!-- GRÁFICOS MES ACTUAL -->
-  <div class="section-title" id="mes-label">MES ACTUAL</div>
-  <div class="main-layout">
-    <div class="chart-card">
-      <div class="chart-label">Evolución</div>
-      <div class="chart-title-text">Ingresos diarios por sucursal</div>
-      <canvas id="chart-linea" height="110"></canvas>
-    </div>
-    <div class="chart-card">
-      <div class="chart-label">Participación</div>
-      <div class="chart-title-text">% del mes</div>
-      <canvas id="chart-donut" height="200"></canvas>
-    </div>
-  </div>
+  <!-- MAIN -->
+  <main class="main-content">
 
-  <div class="charts-row2">
-    <div class="chart-card">
-      <div class="chart-label">Ranking</div>
-      <div class="chart-title-text">Total acumulado por sucursal</div>
-      <canvas id="chart-barras" height="180"></canvas>
-    </div>
-    <div class="feed-card">
-      <div class="feed-header">⚡ Últimas cargas en tiempo real</div>
-      <div id="ultimos-regs">
-        <div class="empty-st">Esperando registros...</div>
+    <!-- DASHBOARD PRINCIPAL -->
+    <section class="section active" id="section-home">
+      <div class="fecha-bar" id="fecha-hoy"></div>
+
+      <div class="global-strip">
+        <div class="global-card">
+          <div class="gc-label">Ingresos hoy</div>
+          <div class="gc-val green" id="global-ing">—</div>
+        </div>
+        <div class="global-card">
+          <div class="gc-label">Egresos hoy</div>
+          <div class="gc-val red" id="global-eg">—</div>
+        </div>
+        <div class="global-card">
+          <div class="gc-label">Neto hoy</div>
+          <div class="gc-val" id="global-net">—</div>
+        </div>
       </div>
-    </div>
-  </div>
+
+      <div class="block-title">Por sucursal — hoy</div>
+      <div class="suc-grid" id="suc-grid-home"></div>
+
+      <div class="block-title" id="mes-label-home">Evolución del mes</div>
+      <div class="chart-card"><canvas id="chart-linea"></canvas></div>
+
+      <div class="charts-row2">
+        <div class="chart-card">
+          <div class="chart-subtitle">Acumulado por sucursal</div>
+          <canvas id="chart-barras"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-subtitle">Participación %</div>
+          <canvas id="chart-donut"></canvas>
+        </div>
+      </div>
+
+      <div class="block-title">⚡ Últimas cargas</div>
+      <div class="feed-card" id="feed-home"></div>
+    </section>
+
+    <!-- OBJETIVOS -->
+    <section class="section" id="section-objetivos">
+      <div class="section-top-row">
+        <div class="section-desc">Cumplimiento mensual por sucursal</div>
+        <button class="btn-outline" id="btn-edit-obj">✎ Editar</button>
+      </div>
+
+      <div class="obj-modal hidden" id="obj-modal">
+        <div class="obj-modal-title">Objetivos mensuales</div>
+        <div id="obj-fields"></div>
+        <div class="modal-actions">
+          <button class="btn-cancel" id="btn-cancel-obj">Cancelar</button>
+          <button class="btn-save" id="btn-save-obj">Guardar</button>
+        </div>
+      </div>
+
+      <div id="obj-cards"></div>
+    </section>
+
+    <!-- MEDIOS DE PAGO -->
+    <section class="section" id="section-medios">
+      <div class="section-desc">Distribución de ingresos por medio de pago</div>
+      <div class="toggle-row" id="toggle-medios">
+        <button class="toggle-btn active" data-val="hoy">Hoy</button>
+        <button class="toggle-btn" data-val="mes">Este mes</button>
+      </div>
+      <div class="chart-card">
+        <div class="chart-subtitle">Distribución global</div>
+        <canvas id="chart-medios-donut"></canvas>
+      </div>
+      <div class="block-title">Detalle por sucursal</div>
+      <div id="medios-detalle"></div>
+    </section>
+
+    <!-- EGRESOS -->
+    <section class="section" id="section-egresos">
+      <div class="section-desc">Distribución de egresos por motivo</div>
+      <div class="toggle-row" id="toggle-egresos">
+        <button class="toggle-btn active" data-val="hoy">Hoy</button>
+        <button class="toggle-btn" data-val="mes">Este mes</button>
+      </div>
+      <div class="chart-card">
+        <div class="chart-subtitle">Distribución global</div>
+        <canvas id="chart-egresos-donut"></canvas>
+      </div>
+      <div class="block-title">Detalle por sucursal</div>
+      <div id="egresos-detalle"></div>
+    </section>
+
+    <!-- HISTORIAL -->
+    <section class="section" id="section-historial">
+      <div class="section-desc">Evolución y comparación histórica</div>
+      <div class="toggle-row" id="toggle-hist">
+        <button class="toggle-btn active" data-val="semana">Semana</button>
+        <button class="toggle-btn" data-val="mes">Mes actual</button>
+        <button class="toggle-btn" data-val="anterior">Mes anterior</button>
+      </div>
+      <div class="chart-card">
+        <div class="chart-subtitle">Ingresos diarios por sucursal</div>
+        <canvas id="chart-hist"></canvas>
+      </div>
+      <div class="block-title">Acumulado vs Objetivo</div>
+      <div id="hist-vs-obj"></div>
+      <div class="block-title">Tabla de días</div>
+      <div class="tabla-wrap" id="hist-tabla"></div>
+    </section>
+
+  </main>
 
   <script src="js/dashboard.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("js/sw.js");
+      navigator.serviceWorker.register("/vv-global/sw.js");
     }
   </script>
 </body>
