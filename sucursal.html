@@ -11,134 +11,221 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="VV Sucursal">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
   <script>
     firebase.initializeApp({
-      apiKey:            "AIzaSyDLkPdZdzEK9Us70-V6etdFL1NFryMLcgQ",
-      authDomain:        "vv-global.firebaseapp.com",
-      databaseURL:       "https://vv-global-default-rtdb.firebaseio.com",
-      projectId:         "vv-global",
-      storageBucket:     "vv-global.firebasestorage.app",
-      messagingSenderId: "930531153099",
-      appId:             "1:930531153099:web:3ecab3f106d1138695774e"
+      apiKey:"AIzaSyDLkPdZdzEK9Us70-V6etdFL1NFryMLcgQ",
+      authDomain:"vv-global.firebaseapp.com",
+      databaseURL:"https://vv-global-default-rtdb.firebaseio.com",
+      projectId:"vv-global",
+      storageBucket:"vv-global.firebasestorage.app",
+      messagingSenderId:"930531153099",
+      appId:"1:930531153099:web:3ecab3f106d1138695774e"
     });
   </script>
 </head>
 <body>
 
-  <!-- PANTALLA 1: Selección de sucursal -->
-  <div id="pantalla-seleccion">
-    <div class="sel-eyebrow">Sistema de Carga · VV Global</div>
-    <h1 class="sel-title">Configuración inicial</h1>
-    <p class="sel-sub">Seleccioná la sucursal de esta PC</p>
-    <div class="suc-grid" id="sucGrid"></div>
+<!-- PANTALLA 1 -->
+<div id="pantalla-seleccion">
+  <div class="sel-eyebrow">Sistema de Carga · VV Global</div>
+  <h1 class="sel-title">Configuración inicial</h1>
+  <p class="sel-sub">Seleccioná la sucursal de esta PC</p>
+  <div class="suc-grid" id="sucGrid"></div>
+</div>
+
+<!-- PANTALLA 2 -->
+<div id="pantalla-carga" class="hidden">
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="suc-badge" id="suc-badge">—</span>
+      <button class="btn-cambiar" id="btn-cambiar">⚙ Cambiar</button>
+    </div>
+    <div class="topbar-fecha" id="fecha-hoy"></div>
   </div>
 
-  <!-- PANTALLA 2: Carga diaria -->
-  <div id="pantalla-carga" class="hidden">
+  <div class="carga-inner">
+    <div id="firebase-error">⚠️ No se pudo conectar con Firebase. Revisá la conexión a internet.</div>
 
-    <!-- Top bar -->
-    <div class="topbar">
-      <div class="topbar-left">
-        <span class="suc-badge" id="suc-badge">—</span>
-        <button class="btn-cambiar" id="btn-cambiar">⚙ Cambiar</button>
-      </div>
-      <div class="topbar-fecha" id="fecha-hoy"></div>
-    </div>
+    <div class="layout">
 
-    <div class="carga-inner">
-      <h1 class="page-title">Carga del día — <span id="suc-nombre"></span></h1>
+      <!-- COLUMNA IZQUIERDA -->
+      <div class="form-col">
+        <div class="tabs">
+          <button class="tab active" data-tab="ventas">💰 Ventas</button>
+          <button class="tab" data-tab="movimientos">↕ Movimientos</button>
+          <button class="tab" data-tab="merma">📦 Merma</button>
+        </div>
 
-      <div id="firebase-error">
-        ⚠️ No se pudo conectar con Firebase. Revisá la conexión a internet.
-      </div>
+        <!-- TAB VENTAS -->
+        <div class="tab-panel active" id="tab-ventas">
+          <div class="form-card">
+            <div class="section-label ing">Medios de cobro</div>
+            <div id="fields-ventas"></div>
+            <div class="nota-wrap">
+              <label>Nota (opcional)</label>
+              <textarea id="nota-ventas" placeholder="Observaciones del día..."></textarea>
+            </div>
+            <button class="btn-guardar" id="btn-guardar-ventas">Guardar Ventas</button>
+          </div>
+        </div>
 
-      <div class="layout">
+        <!-- TAB MOVIMIENTOS -->
+        <div class="tab-panel hidden" id="tab-movimientos">
+          <div class="form-card">
+            <div class="section-label mov">Agregar movimiento</div>
 
-        <!-- FORMULARIO -->
-        <div class="form-card">
+            <div class="mov-tipo-row">
+              <button class="mov-tipo-btn active" data-tipo="egreso">↓ Egreso</button>
+              <button class="mov-tipo-btn" data-tipo="ingreso-inter">↑ Ingreso inter-sucursal</button>
+            </div>
 
-          <!-- INGRESOS -->
-          <div class="section-label ing">↑ Ingresos</div>
-          <div id="fields-ingresos"></div>
+            <div id="mov-campos-egreso">
+              <div class="field-row">
+                <label>Categoría</label>
+                <div class="select-wrap flex1">
+                  <select id="eg-categoria">
+                    <option value="">— Seleccioná —</option>
+                    <option value="proveedores">Proveedores</option>
+                    <option value="servicios">Servicios</option>
+                    <option value="alquiler">Alquiler</option>
+                    <option value="insumos">Insumos</option>
+                    <option value="retiro">Retiro</option>
+                    <option value="otros">Otros</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
-          <!-- EGRESOS -->
-          <div class="section-label eg" style="margin-top:18px">↓ Egresos</div>
+            <div id="mov-campos-inter" class="hidden">
+              <div class="field-row">
+                <label>Sucursal origen</label>
+                <div class="select-wrap flex1">
+                  <select id="inter-origen">
+                    <option value="">— Seleccioná —</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
-          <!-- Adder de egresos -->
-          <div class="egreso-adder">
-            <div class="egreso-row1">
-              <div class="select-wrap">
-                <select id="eg-categoria">
-                  <option value="">— Categoría —</option>
-                  <option value="proveedores">Proveedores</option>
-                  <option value="servicios">Servicios</option>
-                  <option value="alquiler">Alquiler</option>
-                  <option value="insumos">Insumos</option>
-                  <option value="retiro">Retiro</option>
+            <div class="field-row">
+              <label>Monto</label>
+              <div class="input-wrap">
+                <span class="prefix">$</span>
+                <input type="number" id="mov-monto" min="0" step="1" placeholder="0">
+              </div>
+            </div>
+            <div class="field-row">
+              <label>Detalle</label>
+              <div class="detalle-wrap flex1">
+                <input type="text" id="mov-detalle" placeholder="Descripción (opcional)">
+              </div>
+            </div>
+
+            <button class="btn-add-sec" id="btn-add-mov">+ Agregar a la lista</button>
+
+            <div class="items-lista" id="mov-lista">
+              <div class="lista-empty" id="mov-empty">Sin movimientos cargados</div>
+            </div>
+
+            <button class="btn-guardar" id="btn-guardar-mov">Guardar Movimientos</button>
+          </div>
+        </div>
+
+        <!-- TAB MERMA -->
+        <div class="tab-panel hidden" id="tab-merma">
+          <div class="form-card">
+            <div class="section-label merm">Registrar merma</div>
+
+            <div class="field-row">
+              <label>Producto</label>
+              <div class="detalle-wrap flex1">
+                <input type="text" id="merma-producto" placeholder="Nombre del producto">
+              </div>
+            </div>
+            <div class="field-row">
+              <label>Cantidad</label>
+              <div class="input-wrap">
+                <input type="number" id="merma-cantidad" min="1" step="1" placeholder="0" style="width:90px">
+              </div>
+            </div>
+            <div class="field-row">
+              <label>Precio unit.</label>
+              <div class="input-wrap">
+                <span class="prefix">$</span>
+                <input type="number" id="merma-precio" min="0" step="1" placeholder="0">
+              </div>
+            </div>
+
+            <div class="merma-total-preview">
+              Total estimado: <span id="merma-total-val">$0</span>
+            </div>
+
+            <div class="field-row">
+              <label>Motivo</label>
+              <div class="select-wrap flex1">
+                <select id="merma-motivo">
+                  <option value="vencimiento">Vencimiento</option>
+                  <option value="deterioro">Deterioro</option>
+                  <option value="rotura">Rotura</option>
+                  <option value="robo">Robo / faltante</option>
                   <option value="otros">Otros</option>
                 </select>
               </div>
-              <div class="egreso-monto-wrap">
-                <span class="prefix">$</span>
-                <input type="number" id="eg-monto" min="0" step="1" placeholder="0">
+            </div>
+            <div class="field-row">
+              <label>Detalle</label>
+              <div class="detalle-wrap flex1">
+                <input type="text" id="merma-detalle" placeholder="Observaciones adicionales (opcional)">
               </div>
             </div>
-            <div class="detalle-wrap">
-              <input type="text" id="eg-detalle" placeholder="Detalle del movimiento (opcional)">
-            </div>
-            <button class="btn-add-egreso" id="btn-add-egreso">+ Agregar egreso</button>
-          </div>
 
-          <!-- Lista acumulada de egresos -->
-          <div class="egresos-lista" id="egresos-lista">
-            <div class="egresos-empty" id="egresos-empty">Sin egresos cargados</div>
-          </div>
+            <button class="btn-add-sec" id="btn-add-merma">+ Agregar a la lista</button>
 
-          <!-- Nota general -->
-          <div class="nota-wrap">
-            <label>Nota general (opcional)</label>
-            <textarea id="nota" placeholder="Ej: cierre tarde, feriado, etc."></textarea>
-          </div>
+            <div class="items-lista" id="merma-lista">
+              <div class="lista-empty" id="merma-empty">Sin ítems cargados</div>
+            </div>
 
-          <button class="btn-guardar" id="btn-guardar">Guardar Registro</button>
-        </div>
-
-        <!-- RESUMEN DEL DÍA -->
-        <div class="resumen-card">
-          <div class="section-label" style="color:var(--text);border-color:var(--border2)">Resumen de hoy</div>
-          <div class="totales-grid">
-            <div class="total-box">
-              <div class="t-label">Ingresos</div>
-              <div class="t-value" id="total-ing">$0</div>
-            </div>
-            <div class="total-box">
-              <div class="t-label">Egresos</div>
-              <div class="t-value" id="total-eg">$0</div>
-            </div>
-            <div class="total-box">
-              <div class="t-label" id="neto-label">Neto</div>
-              <div class="t-value" id="total-net">$0</div>
-            </div>
-          </div>
-          <div class="resumen-lista" id="resumen-lista">
-            <div class="empty-state">Conectando con Firebase...</div>
+            <button class="btn-guardar merm-save" id="btn-guardar-merma">Guardar Merma</button>
           </div>
         </div>
 
+      </div><!-- /form-col -->
+
+      <!-- COLUMNA DERECHA: resumen -->
+      <div class="resumen-card">
+        <div class="section-label" style="color:var(--text);border-color:var(--border2)">Resumen de hoy</div>
+        <div class="totales-grid">
+          <div class="total-box">
+            <div class="t-label">Ventas</div>
+            <div class="t-value" id="total-ing">$0</div>
+          </div>
+          <div class="total-box">
+            <div class="t-label">Egresos</div>
+            <div class="t-value" id="total-eg">$0</div>
+          </div>
+          <div class="total-box">
+            <div class="t-label" id="neto-label">Neto</div>
+            <div class="t-value" id="total-net">$0</div>
+          </div>
+        </div>
+        <div class="resumen-lista" id="resumen-lista">
+          <div class="empty-state">Conectando con Firebase...</div>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <div class="toast" id="toast"></div>
+    </div><!-- /layout -->
+  </div><!-- /carga-inner -->
+</div><!-- /pantalla-carga -->
 
-  <script src="js/sucursal.js"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/vv-global/sw.js");
-    }
-  </script>
+<div class="toast" id="toast"></div>
+<script src="js/sucursal.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/vv-global/sw.js");
+  }
+</script>
 </body>
 </html>
