@@ -19,6 +19,8 @@ var RUBROS_EG = [
   { id: "insumos",     label: "Insumos" },
   { id: "alquiler",    label: "Alquiler" },
   { id: "servicios",   label: "Servicios" },
+  { id: "retiro",      label: "Retiro" },
+  { id: "transferencia-inter", label: "Transf. inter-sucursal" },
   { id: "otros",       label: "Otros" }
 ];
 
@@ -59,14 +61,54 @@ function fmtFull(n) {
   return "$" + Number(n).toLocaleString("es-AR");
 }
 
+// Devuelve ingresos de ventas de un registro (nuevo o viejo formato)
+function regIngresos(r) {
+  if (r.tipo === "ventas")       return r.totalVentas  || 0;
+  if (r.tipo === "movimientos")  return r.totalIngInter || 0;
+  if (r.tipo === "merma")        return 0;
+  // Formato viejo (sin campo tipo)
+  return r.totalIngresos || 0;
+}
+
+// Devuelve egresos de un registro
+function regEgresos(r) {
+  if (r.tipo === "ventas")      return 0;
+  if (r.tipo === "merma")       return 0;
+  if (r.tipo === "movimientos") return r.totalEgresos || 0;
+  // Formato viejo
+  return r.totalEgresos || 0;
+}
+
 function sumField(fecha, suc, campo) {
   var regs = (allData[fecha] && allData[fecha][suc]) ? allData[fecha][suc] : [];
-  return regs.reduce(function(a, r) { return a + (r[campo] || 0); }, 0);
+  return regs.reduce(function(a, r) {
+    if (campo === "totalIngresos") return a + regIngresos(r);
+    if (campo === "totalEgresos")  return a + regEgresos(r);
+    return a + (r[campo] || 0);
+  }, 0);
 }
 
 function sumRubro(fecha, suc, tipo, rubroId) {
   var regs = (allData[fecha] && allData[fecha][suc]) ? allData[fecha][suc] : [];
   return regs.reduce(function(a, r) {
+    if (tipo === "ingresos") {
+      // Nuevo formato: ventas{}
+      if (r.tipo === "ventas" && r.ventas && r.ventas[rubroId])
+        return a + r.ventas[rubroId];
+      // Viejo formato: ingresos{}
+      if (!r.tipo && r.ingresos && r.ingresos[rubroId])
+        return a + r.ingresos[rubroId];
+      return a;
+    }
+    if (tipo === "egresos") {
+      // Nuevo formato: egresos{} dentro de movimientos
+      if (r.tipo === "movimientos" && r.egresos && r.egresos[rubroId])
+        return a + r.egresos[rubroId];
+      // Viejo formato: egresos{}
+      if (!r.tipo && r.egresos && r.egresos[rubroId])
+        return a + r.egresos[rubroId];
+      return a;
+    }
     return a + ((r[tipo] && r[tipo][rubroId]) ? r[tipo][rubroId] : 0);
   }, 0);
 }
@@ -207,8 +249,8 @@ function renderFeed() {
         (r.nota ? '<span class="feed-nota">' + r.nota + '</span>' : '') +
       '</div>' +
       '<div class="feed-nums">' +
-        '<span class="feed-ing">+' + fmtM(r.totalIngresos||0) + '</span>' +
-        '<span class="feed-eg">-'  + fmtM(r.totalEgresos||0)  + '</span>' +
+        '<span class="feed-ing">+' + fmtM(regIngresos(r)) + '</span>' +
+        '<span class="feed-eg">-'  + fmtM(regEgresos(r))  + '</span>' +
       '</div>';
     container.appendChild(div);
   });
