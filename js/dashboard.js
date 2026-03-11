@@ -400,20 +400,28 @@ function initObjetivosModal() {
   var fields    = document.getElementById("obj-fields");
 
   btnEdit.addEventListener("click", function() {
-    var obj = getObjetivos();
-    fields.innerHTML = "";
-    SUCURSALES.forEach(function(suc) {
-      var row = document.createElement("div");
-      row.className = "obj-field-row";
-      row.innerHTML =
-        '<label>' + suc + '</label>' +
-        '<div class="obj-input-wrap">' +
-          '<span class="obj-prefix">$</span>' +
-          '<input type="number" id="obj-inp-' + suc + '" value="' + (obj[suc]||0) + '" min="0" step="100000">' +
-        '</div>';
-      fields.appendChild(row);
-    });
-    modal.classList.remove("hidden");
+    // Pedir clave del dashboard
+    var clave = prompt("Ingresá la clave de administrador:");
+    if (!clave) return;
+    firebase.database().ref("config/claves/dashboard").once("value")
+      .then(function(snap) {
+        var ok = !snap.exists() || String(clave).trim() === String(snap.val()).trim();
+        if (!ok) { alert("Clave incorrecta."); return; }
+        var obj = getObjetivos();
+        fields.innerHTML = "";
+        SUCURSALES.forEach(function(suc) {
+          var row = document.createElement("div");
+          row.className = "obj-field-row";
+          row.innerHTML =
+            '<label>' + suc + '</label>' +
+            '<div class="obj-input-wrap">' +
+              '<span class="obj-prefix">$</span>' +
+              '<input type="number" id="obj-inp-' + suc + '" value="' + (obj[suc]||0) + '" min="0" step="100000">' +
+            '</div>';
+          fields.appendChild(row);
+        });
+        modal.classList.remove("hidden");
+      });
   });
 
   btnCancel.addEventListener("click", function() { modal.classList.add("hidden"); });
@@ -421,8 +429,7 @@ function initObjetivosModal() {
   btnSave.addEventListener("click", function() {
     var obj = {};
     SUCURSALES.forEach(function(suc) {
-      var val = parseFloat(document.getElementById("obj-inp-" + suc).value) || 0;
-      obj[suc] = val;
+      obj[suc] = parseFloat(document.getElementById("obj-inp-" + suc).value) || 0;
     });
     localStorage.setItem("vvglobal_objetivos", JSON.stringify(obj));
     modal.classList.add("hidden");
@@ -787,7 +794,95 @@ function initToggleHist() {
   });
 }
 
-// ===================== FIREBASE =====================
+// ===================== EFECTIVO POR SUCURSAL =====================
+function renderEfectivoTabla(snapTotal) {
+  var tbody = document.getElementById("efectivo-tbody");
+  if (!tbody) return;
+
+  // Calcular saldo de efectivo para cada sucursal
+  var saldos = {};
+  SUCURSALES.forEach(function(s){ saldos[s] = 0; });
+
+  if (snapTotal && snapTotal.exists()) {
+    snapTotal.forEach(function(daySnap) {
+      daySnap.forEach(function(sucSnap) {
+        var suc = sucSnap.key;
+        if (!saldos.hasOwnProperty(suc)) return;
+        sucSnap.forEach(function(regSnap) {
+          var r = regSnap.val();
+          if (r.esEspejoInter) return;
+          if (r.tipo === "ventas") {
+            saldos[suc] += (r.ventas && r.ventas["efectivo"]) ? r.ventas["efectivo"] : 0;
+          } else if (r.tipo === "movimientos") {
+            (r.ingresosInter || []).forEach(function(i){ saldos[suc] += i.monto || 0; });
+            saldos[suc] -= r.totalEgresos || 0;
+          } else if (!r.tipo) {
+            saldos[suc] += (r.ingresos && r.ingresos["efectivo"]) ? r.ingresos["efectivo"] : 0;
+            saldos[suc] -= r.totalEgresos || 0;
+          }
+        });
+      });
+    });
+  }
+
+  // Máximo absoluto para la barra proporcional
+  var maxAbs = Math.max(1, Math.max.apply(null, SUCURSALES.map(function(s){ return Math.abs(saldos[s]); })));
+
+  tbody.innerHTML = "";
+  SUCURSALES.forEach(function(suc) {
+    var saldo = saldos[suc];
+    var pct   = Math.round(Math.abs(saldo) / maxAbs * 100);
+    var color = COLORS[suc];
+    var esPos = saldo >= 0;
+    var tr = document.createElement("tr");
+    tr.innerHTML =
+      '<td><span class="ef-suc" style="color:' + color + '">' + suc + '</span></td>' +
+      '<td><span class="ef-estado">' + (esPos ? "✓ positivo" : "⚠ negativo") + '</span></td>' +
+      '<td class="ef-bar-cell"><div class="ef-bar-wrap"><div class="ef-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div></td>' +
+      '<td><span class="ef-val ' + (esPos ? "positivo" : "negativo") + '">' + (esPos ? "+" : "−") + fmtM(Math.abs(saldo)) + '</span></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+
+function renderCierreStrip() {
+  var cont = document.getElementById("cierre-strip-home");
+  if (!cont) return;
+  cont.innerHTML = '<div class="empty-st" style="padding:12px 0;font-size:.78rem">Cargando cierres...</div>';
+
+  firebase.database().ref("cierres/" + today()).once("value", function(snap) {
+    cont.innerHTML = "";
+    SUCURSALES.forEach(function(suc) {
+      var card = document.createElement("div");
+      card.className = "cierre-dash-card";
+      card.setAttribute("data-suc", suc);
+      var c = COLORS[suc];
+
+      if (snap.exists() && snap.child(suc).exists()) {
+        var d        = snap.child(suc).val();
+        var difSign  = d.diferencia >= 0 ? "+" : "−";
+        var difColor = d.diferencia >= 0 ? "var(--green)" : "var(--red)";
+        var hora     = new Date(d.timestamp).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+        card.classList.add("cierre-ok");
+        card.innerHTML =
+          '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
+          '<div class="cs-estado cs-cerrado">✓ Cerrado ' + hora + '</div>' +
+          '<div class="cs-row"><span class="cs-lbl">Contado</span><span class="cs-val">' + fmtM(d.contado) + '</span></div>' +
+          '<div class="cs-row"><span class="cs-lbl">Sistema</span><span class="cs-val">' + fmtM(d.saldoSistema) + '</span></div>' +
+          '<div class="cs-row"><span class="cs-lbl">Diferencia</span><span class="cs-val" style="color:' + difColor + '">' + difSign + fmtM(Math.abs(d.diferencia)) + '</span></div>' +
+          (d.nota ? '<div class="cs-nota">' + d.nota + '</div>' : '');
+      } else {
+        card.classList.add("cierre-pendiente");
+        card.innerHTML =
+          '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
+          '<div class="cs-estado cs-pendiente">⏳ Sin cerrar</div>';
+      }
+      cont.appendChild(card);
+    });
+  });
+}
+
+
 function initFirebase() {
   firebase.database().ref("registros").on("value", function(snap) {
     allData = {};
@@ -805,6 +900,8 @@ function initFirebase() {
     }
     // Re-renderizar la sección activa
     renderHome();
+    renderCierreStrip();
+    renderEfectivoTabla(snap);
     if (sectionActual === "objetivos") renderObjetivos();
     if (sectionActual === "medios")    renderMedios(periodMedios);
     if (sectionActual === "egresos")   renderEgresos(periodEgresos);

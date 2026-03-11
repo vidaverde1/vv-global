@@ -6,9 +6,9 @@
   --bg3:       #1a1a1a;
   --border:    #2a2a2a;
   --border2:   #333333;
-  --text:      #f0f0f0;
-  --muted:     #666666;
-  --muted2:    #888888;
+  --text:      #e0e0e0;
+  --muted:     #888888;
+  --muted2:    #aaaaaa;
   --green:     #00e676;
   --green-dim: #00e67622;
   --red:       #ff4444;
@@ -190,9 +190,51 @@ body {
 .main-content {
   margin-top: var(--topbar-h);
   padding: 20px 16px 40px;
-  max-width: 900px;
+  max-width: 1400px;
   margin-left: auto;
   margin-right: auto;
+}
+
+/* Layout 3 columnas en escritorio */
+@media (min-width: 1024px) {
+  .main-content {
+    padding: 24px 32px 48px;
+  }
+
+  /* Home: global strip y suc-grid se expanden full width */
+  #section-home .global-strip {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  #section-home .suc-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
+  /* Secciones con contenido largo: 2 columnas */
+  .desktop-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* Charts en 3 columnas */
+  .charts-row2 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Feed + cierre side by side */
+  .desktop-feed-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+}
+
+@media (min-width: 1280px) {
+  #section-home .charts-row2 {
+    grid-template-columns: 2fr 1fr;
+  }
 }
 
 .section { display: none; }
@@ -942,4 +984,170 @@ body {
   height: 100%;
   border-radius: 2px;
   transition: width .5s ease;
+}
+
+/* ===================== CIERRE DE CAJA — DASHBOARD ===================== */
+.cierre-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.cierre-dash-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 13px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: border-color .2s;
+}
+.cierre-dash-card.cierre-ok      { border-color: #00e67640; }
+.cierre-dash-card.cierre-pendiente { border-color: #f0a50040; }
+
+.cs-suc {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.cs-estado {
+  font-size: .7rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.cs-cerrado  { color: var(--green); }
+.cs-pendiente { color: #f0a500; }
+
+.cs-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: .72rem;
+}
+.cs-lbl { color: var(--muted); }
+.cs-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: .75rem;
+  color: var(--text);
+}
+.cs-nota {
+  font-size: .68rem;
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 2px;
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+}
+
+/* ===================== EFECTIVO POR SUCURSAL ===================== */
+.efectivo-tabla-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.efectivo-tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.efectivo-tabla th {
+  padding: 9px 14px;
+  text-align: left;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.efectivo-tabla th:last-child { text-align: right; }
+
+.efectivo-tabla td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.efectivo-tabla tbody tr:last-child td { border-bottom: none; }
+.efectivo-tabla tbody tr:hover td { background: var(--bg3); }
+
+.ef-suc {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.ef-estado {
+  font-size: .7rem;
+  color: var(--muted);
+}
+.ef-bar-cell { width: 120px; }
+.ef-bar-wrap {
+  height: 5px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ef-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .6s ease;
+}
+.ef-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .88rem;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+.ef-val.positivo { color: var(--green); }
+.ef-val.negativo { color: var(--red); }
+
+/* ===================== MOBILE IMPROVEMENTS ===================== */
+@media (max-width: 600px) {
+  body { font-size: 15px; }
+
+  .block-title {
+    font-size: .7rem;
+    letter-spacing: 2px;
+  }
+
+  .gc-label { font-size: .65rem; }
+  .gc-val   { font-size: 1.25rem; }
+
+  .suc-card { padding: 16px; }
+  .suc-name { font-size: .68rem; }
+  .sr-label { font-size: .75rem; }
+  .sr-val   { font-size: .88rem; }
+  .sr-regs  { font-size: .68rem; }
+
+  .feed-suc  { font-size: .65rem; padding: 5px 9px; }
+  .feed-time { font-size: .72rem; }
+  .feed-nota { font-size: .75rem; }
+  .feed-nums { font-size: .78rem; }
+
+  .efectivo-tabla th { font-size: .65rem; padding: 8px 10px; }
+  .efectivo-tabla td { padding: 10px; }
+  .ef-suc  { font-size: .72rem; }
+  .ef-val  { font-size: .9rem; }
+  .ef-bar-cell { width: 70px; }
+
+  .cierre-dash-card { padding: 14px; }
+  .cs-suc    { font-size: .7rem; }
+  .cs-estado { font-size: .76rem; }
+  .cs-row    { font-size: .76rem; }
+  .cs-val    { font-size: .8rem; }
+
+  .reloj { font-size: .88rem; }
+
+  .obj-field-row label { font-size: .88rem; }
+  .obj-input-wrap input { font-size: .9rem; }
 }

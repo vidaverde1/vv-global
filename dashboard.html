@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard Global — VV Global</title>
-  <link rel="stylesheet" href="styles/dashboard.css">
+  <link rel="stylesheet" href="dashboard.css">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -89,10 +89,28 @@
       </div>
 
       <div class="block-title">⚡ Últimas cargas</div>
-      <div class="feed-card" id="feed-home"></div>
+      <div class="desktop-feed-row">
+        <div class="feed-card" id="feed-home"></div>
+        <div>
+          <div class="block-title" style="margin-top:0">🔒 Cierre de caja — hoy</div>
+          <div class="cierre-strip" id="cierre-strip-home"></div>
+        </div>
+      </div>
 
-      <div class="block-title">🔒 Cierre de caja — hoy</div>
-      <div class="cierre-strip" id="cierre-strip-home"></div>
+      <div class="block-title">💵 Efectivo disponible por sucursal</div>
+      <div class="efectivo-tabla-wrap">
+        <table class="efectivo-tabla">
+          <thead>
+            <tr>
+              <th>Sucursal</th>
+              <th>Estado</th>
+              <th class="ef-bar-cell">Proporción</th>
+              <th>Saldo</th>
+            </tr>
+          </thead>
+          <tbody id="efectivo-tbody"></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- OBJETIVOS -->
@@ -172,10 +190,10 @@
 
   </main>
 
-  <script src="js/dashboard.js"></script>
+  <script src="dashboard.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/vv-global/js/sw.js");
+      navigator.serviceWorker.register("/vv-global/sw.js");
     }
   </script>
 </body>
