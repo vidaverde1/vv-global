@@ -13,21 +13,14 @@
   <link rel="apple-touch-icon" href="icons/icon-sucursal-192.png">
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="config.js"></script>
   <script>
-    firebase.initializeApp({
-      apiKey:"AIzaSyDLkPdZdzEK9Us70-V6etdFL1NFryMLcgQ",
-      authDomain:"vv-global.firebaseapp.com",
-      databaseURL:"https://vv-global-default-rtdb.firebaseio.com",
-      projectId:"vv-global",
-      storageBucket:"vv-global.firebasestorage.app",
-      messagingSenderId:"930531153099",
-      appId:"1:930531153099:web:3ecab3f106d1138695774e"
-    });
+    firebase.initializeApp(VV_CONFIG.firebase);
   </script>
 </head>
 <body>
 
-<!-- PANTALLA 1 -->
+<!-- PANTALLA 1: Selección de sucursal -->
 <div id="pantalla-seleccion">
   <div class="sel-eyebrow">Sistema de Carga · VV Global</div>
   <h1 class="sel-title">Configuración inicial</h1>
@@ -35,7 +28,22 @@
   <div class="suc-grid" id="sucGrid"></div>
 </div>
 
-<!-- PANTALLA 2 -->
+<!-- PANTALLA 2: Ingreso de clave -->
+<div id="pantalla-clave" class="hidden">
+  <div class="clave-box">
+    <div class="sel-eyebrow">Verificación</div>
+    <h2 class="clave-title" id="clave-suc-nombre">—</h2>
+    <p class="clave-sub">Ingresá la clave de acceso</p>
+    <div class="clave-input-wrap">
+      <input type="password" id="clave-input" placeholder="••••••" autocomplete="off" maxlength="20">
+    </div>
+    <div class="clave-error hidden" id="clave-error">Clave incorrecta. Intentá de nuevo.</div>
+    <button class="btn-clave" id="btn-clave">Ingresar</button>
+    <button class="btn-volver" id="btn-volver-sel">← Cambiar sucursal</button>
+  </div>
+</div>
+
+<!-- PANTALLA 3: App principal -->
 <div id="pantalla-carga" class="hidden">
 
   <div class="topbar">
@@ -49,14 +57,30 @@
   <div class="carga-inner">
     <div id="firebase-error">⚠️ No se pudo conectar con Firebase. Revisá la conexión a internet.</div>
 
+    <!-- SALDO DE EFECTIVO -->
+    <div class="saldo-banner saldo-ok" id="saldo-efectivo">
+      <div class="saldo-left">
+        <span class="saldo-icon">💵</span>
+        <div class="saldo-texts">
+          <span class="saldo-label">Efectivo disponible en caja</span>
+          <span class="saldo-sub">Acumulado histórico · ventas + ingresos − egresos</span>
+        </div>
+      </div>
+      <div class="saldo-right">
+        <span class="saldo-signo" id="saldo-signo">+</span>
+        <span class="saldo-val" id="saldo-efectivo-val">calculando...</span>
+      </div>
+    </div>
+
     <div class="layout">
 
-      <!-- COLUMNA IZQUIERDA -->
+      <!-- COLUMNA IZQUIERDA: tabs -->
       <div class="form-col">
         <div class="tabs">
           <button class="tab active" data-tab="ventas">💰 Ventas</button>
           <button class="tab" data-tab="movimientos">↕ Movimientos</button>
           <button class="tab" data-tab="merma">📦 Merma</button>
+          <button class="tab" data-tab="cierre">🔒 Cierre</button>
         </div>
 
         <!-- TAB VENTAS -->
@@ -76,12 +100,10 @@
         <div class="tab-panel hidden" id="tab-movimientos">
           <div class="form-card">
             <div class="section-label mov">Agregar movimiento</div>
-
             <div class="mov-tipo-row">
               <button class="mov-tipo-btn active" data-tipo="egreso">↓ Egreso</button>
               <button class="mov-tipo-btn" data-tipo="ingreso-inter">↑ Ingreso inter-sucursal</button>
             </div>
-
             <div id="mov-campos-egreso">
               <div class="field-row">
                 <label>Categoría</label>
@@ -98,7 +120,6 @@
                 </div>
               </div>
             </div>
-
             <div id="mov-campos-inter" class="hidden">
               <div class="field-row">
                 <label>Sucursal origen</label>
@@ -109,7 +130,6 @@
                 </div>
               </div>
             </div>
-
             <div class="field-row">
               <label>Monto</label>
               <div class="input-wrap">
@@ -123,13 +143,10 @@
                 <input type="text" id="mov-detalle" placeholder="Descripción (opcional)">
               </div>
             </div>
-
             <button class="btn-add-sec" id="btn-add-mov">+ Agregar a la lista</button>
-
             <div class="items-lista" id="mov-lista">
               <div class="lista-empty" id="mov-empty">Sin movimientos cargados</div>
             </div>
-
             <button class="btn-guardar" id="btn-guardar-mov">Guardar Movimientos</button>
           </div>
         </div>
@@ -138,7 +155,6 @@
         <div class="tab-panel hidden" id="tab-merma">
           <div class="form-card">
             <div class="section-label merm">Registrar merma</div>
-
             <div class="field-row">
               <label>Producto</label>
               <div class="detalle-wrap flex1">
@@ -158,11 +174,9 @@
                 <input type="number" id="merma-precio" min="0" step="1" placeholder="0">
               </div>
             </div>
-
             <div class="merma-total-preview">
               Total estimado: <span id="merma-total-val">$0</span>
             </div>
-
             <div class="field-row">
               <label>Motivo</label>
               <div class="select-wrap flex1">
@@ -181,14 +195,55 @@
                 <input type="text" id="merma-detalle" placeholder="Observaciones adicionales (opcional)">
               </div>
             </div>
-
             <button class="btn-add-sec" id="btn-add-merma">+ Agregar a la lista</button>
-
             <div class="items-lista" id="merma-lista">
               <div class="lista-empty" id="merma-empty">Sin ítems cargados</div>
             </div>
-
             <button class="btn-guardar merm-save" id="btn-guardar-merma">Guardar Merma</button>
+          </div>
+        </div>
+
+        <!-- TAB CIERRE DE CAJA -->
+        <div class="tab-panel hidden" id="tab-cierre">
+          <div class="form-card">
+            <div class="section-label cierre">🔒 Cierre de caja</div>
+
+            <!-- Estado: ya cerrado hoy -->
+            <div id="cierre-ya-hecho" class="hidden">
+              <div class="cierre-done-card">
+                <div class="cierre-done-icon">✓</div>
+                <div class="cierre-done-title">Caja cerrada hoy</div>
+                <div class="cierre-done-data" id="cierre-done-data"></div>
+              </div>
+            </div>
+
+            <!-- Formulario de cierre -->
+            <div id="cierre-form">
+              <div class="cierre-saldo-ref">
+                <span class="cierre-ref-label">Saldo del sistema</span>
+                <span class="cierre-ref-val" id="cierre-saldo-sistema">calculando...</span>
+              </div>
+
+              <div class="field-row" style="margin-top:14px">
+                <label>Efectivo contado</label>
+                <div class="input-wrap">
+                  <span class="prefix">$</span>
+                  <input type="number" id="cierre-contado" min="0" step="1" placeholder="0">
+                </div>
+              </div>
+
+              <div class="cierre-diferencia" id="cierre-diferencia-wrap">
+                <span class="cierre-dif-label">Diferencia</span>
+                <span class="cierre-dif-val" id="cierre-diferencia-val">—</span>
+              </div>
+
+              <div class="nota-wrap" style="margin-top:10px">
+                <label>Nota (opcional)</label>
+                <textarea id="cierre-nota" placeholder="Observaciones del cierre..."></textarea>
+              </div>
+
+              <button class="btn-guardar cierre-save" id="btn-guardar-cierre">🔒 Cerrar Caja</button>
+            </div>
           </div>
         </div>
 
