@@ -8,7 +8,8 @@ self.addEventListener("install", function(event) {
       return cache.addAll([
         BASE + "/sucursal.html",
         BASE + "/dashboard.html",
-        BASE + "/manifest.json",
+        BASE + "/manifest-dashboard.json",
+        BASE + "/manifest-sucursal.json",
         BASE + "/styles/sucursal.css",
         BASE + "/styles/dashboard.css",
         BASE + "/js/sucursal.js",
