@@ -37,6 +37,7 @@ var charts     = {};
 var sectionActual = "home";
 var periodEgresos = "hoy";
 var periodHist    = "semana";
+var viewParticipacion = "donut"; // "donut" | "bar"
 
 function getObjetivos() {
   try {
@@ -304,10 +305,26 @@ function renderChartsHome() {
     var totMes = SUCURSALES.map(function(suc) {
       return dias.reduce(function(a,f){return a+sumField(f,suc,"totalIngresos");},0);
     });
-    var totalMes = totMes.reduce(function(a,b){return a+b;},0);
 
-    // Donut único con monto + porcentaje en tooltip
-    if (charts.donut) charts.donut.destroy();
+    renderParticipacion(totMes);
+  }
+}
+
+function renderParticipacion(totMes) {
+  if (!totMes) {
+    // Recalcular si no se pasan datos
+    var mes  = mesActual();
+    var dias = diasDeMes(mes);
+    totMes = SUCURSALES.map(function(suc) {
+      return dias.reduce(function(a,f){return a+sumField(f,suc,"totalIngresos");},0);
+    });
+  }
+  var totalMes = totMes.reduce(function(a,b){return a+b;},0);
+  var tooltipBase = { backgroundColor:"#1a1a1a", borderColor:"#2a2a2a", borderWidth:1, titleColor:"#f0f0f0", bodyColor:"#888" };
+
+  if (charts.donut) { charts.donut.destroy(); charts.donut = null; }
+
+  if (viewParticipacion === "donut") {
     charts.donut = new Chart(document.getElementById("chart-donut"), {
       type: "doughnut",
       data: {
@@ -330,7 +347,7 @@ function renderChartsHome() {
               color: "#aaa",
               font: { size: 11, family: "Space Grotesk" },
               boxWidth: 10, padding: 12,
-              generateLabels: function(chart) {
+              generateLabels: function() {
                 return SUCURSALES.map(function(suc, i) {
                   var val = totMes[i];
                   var pct = totalMes > 0 ? (val/totalMes*100).toFixed(1) : "0.0";
@@ -358,7 +375,61 @@ function renderChartsHome() {
         }
       }
     });
+
+  } else {
+    // Vista de columnas
+    charts.donut = new Chart(document.getElementById("chart-donut"), {
+      type: "bar",
+      data: {
+        labels: SUCURSALES,
+        datasets: [{
+          label: "Acumulado mes",
+          data: totMes,
+          backgroundColor: SUCURSALES.map(function(s){ return COLORS[s] + "cc"; }),
+          borderColor:      SUCURSALES.map(function(s){ return COLORS[s]; }),
+          borderWidth: 1.5,
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...tooltipBase,
+            callbacks: {
+              label: function(ctx) {
+                var pct = totalMes > 0 ? (ctx.raw/totalMes*100).toFixed(1) : "0.0";
+                return "  " + fmtFull(ctx.raw) + "  (" + pct + "%)";
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: "#888", font: { size: 10, family: "Space Grotesk" } },
+            grid:  { display: false }
+          },
+          y: {
+            ticks: { color: "#555", font: { size: 10 }, callback: function(v){ return fmtM(v); } },
+            grid:  { color: "#1f1f1f" }
+          }
+        }
+      }
+    });
   }
+}
+
+function initToggleParticipacion() {
+  document.getElementById("toggle-participacion").addEventListener("click", function(e) {
+    var btn = e.target.closest(".chart-view-btn");
+    if (!btn) return;
+    document.querySelectorAll("#toggle-participacion .chart-view-btn").forEach(function(b){ b.classList.remove("active"); });
+    btn.classList.add("active");
+    viewParticipacion = btn.getAttribute("data-val");
+    renderParticipacion(null);
+  });
 }
 
 // ===================== SECCIÓN: OBJETIVOS =====================
@@ -1125,6 +1196,13 @@ function initFirebase() {
 
 // ===================== INIT =====================
 document.addEventListener("DOMContentLoaded", function() {
+  // Chart.js defaults — evita fuente negra en modo oscuro
+  if (window.Chart) {
+    Chart.defaults.color = "#888";
+    Chart.defaults.font.family = "Space Grotesk, sans-serif";
+    Chart.defaults.font.size   = 11;
+  }
+
   // Fecha
   document.getElementById("fecha-hoy").textContent =
     new Date().toLocaleDateString("es-AR", {weekday:"long",day:"numeric",month:"long",year:"numeric"}).toUpperCase();
@@ -1140,6 +1218,7 @@ document.addEventListener("DOMContentLoaded", function() {
   initNav();
   initObjetivosModal();
   initFacturas();
+  initToggleParticipacion();
   initToggleEgresos();
   initToggleHist();
   initFirebase();

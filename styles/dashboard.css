@@ -1486,3 +1486,35 @@ body {
 #chart-egresos-donut {
   max-height: 200px;
 }
+
+/* ===================== CHART VIEW TOGGLE ===================== */
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.chart-card-header .chart-subtitle {
+  margin-bottom: 0;
+}
+.chart-view-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 3px;
+}
+.chart-view-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: .75rem;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all .18s;
+  line-height: 1;
+}
+.chart-view-btn:hover  { color: var(--text); }
+.chart-view-btn.active { background: var(--border2); color: var(--text); }

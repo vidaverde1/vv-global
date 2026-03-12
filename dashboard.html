@@ -45,7 +45,7 @@
   <!-- TOPBAR -->
   <header class="topbar">
     <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
-    <div class="topbar-center" id="section-title">Dashboard</div>
+    <div class="topbar-center" id="section-title">Verde Tokio S.R.L</div>
     <div class="reloj" id="reloj">--:--</div>
   </header>
 
@@ -80,7 +80,13 @@
           <canvas id="chart-linea"></canvas>
         </div>
         <div class="chart-card chart-card-donut">
-          <div class="chart-subtitle">Participación por sucursal</div>
+          <div class="chart-card-header">
+            <div class="chart-subtitle">Participación por sucursal</div>
+            <div class="chart-view-toggle" id="toggle-participacion">
+              <button class="chart-view-btn active" data-val="donut" title="Circular">⬤</button>
+              <button class="chart-view-btn" data-val="bar" title="Columnas">▮▮</button>
+            </div>
+          </div>
           <canvas id="chart-donut"></canvas>
         </div>
       </div>
@@ -228,7 +234,7 @@
 
     <!-- MERMA -->
     <section class="section" id="section-merma">
-      <div class="section-desc">Mercadería perdida, vencida o deteriorada — mes actual</div>
+      <div class="section-desc">Merma — mes actual</div>
       <div class="merma-global-strip" id="merma-global-strip"></div>
       <div class="block-title">Detalle por sucursal</div>
       <div id="merma-detalle"></div>
