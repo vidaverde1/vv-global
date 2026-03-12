@@ -32,9 +32,9 @@ var OBJETIVOS_DEFAULT = {
 
 // ===================== ESTADO =====================
 var allData    = {};
+var allFacturas = [];
 var charts     = {};
 var sectionActual = "home";
-var periodMedios  = "hoy";
 var periodEgresos = "hoy";
 var periodHist    = "semana";
 
@@ -168,12 +168,11 @@ function goToSection(sec) {
   document.querySelector("[data-section='" + sec + "']").classList.add("active");
   sectionActual = sec;
 
-  var titles = { home:"Dashboard", objetivos:"Objetivos", medios:"Medios de Pago", egresos:"Egresos", merma:"Merma", historial:"Historial" };
+  var titles = { home:"Dashboard", objetivos:"Objetivos", facturas:"Facturas", egresos:"Egresos", merma:"Merma", historial:"Historial" };
   document.getElementById("section-title").textContent = titles[sec] || sec;
 
-  // Renderizar la sección al entrar
   if (sec === "objetivos")  renderObjetivos();
-  if (sec === "medios")     renderMedios(periodMedios);
+  if (sec === "facturas")   renderFacturas();
   if (sec === "egresos")    renderEgresos(periodEgresos);
   if (sec === "merma")      renderMerma();
   if (sec === "historial")  renderHistorial(periodHist);
@@ -242,16 +241,29 @@ function renderFeed() {
     var c    = COLORS[r.sucursal] || "#888";
     var div  = document.createElement("div");
     div.className = "feed-item";
+
+    var numsHtml;
+    if (r.tipo === "merma") {
+      numsHtml = '<span class="feed-badge-tipo feed-merma">📦 Merma · ' + fmtM(r.totalMerma||0) + '</span>';
+    } else if (r.tipo === "cierre") {
+      numsHtml = '<span class="feed-badge-tipo feed-cierre">🔒 Cierre</span>';
+    } else {
+      var ing = regIngresos(r);
+      var eg  = regEgresos(r);
+      numsHtml =
+        '<div class="feed-nums">' +
+        (ing ? '<span class="feed-ing">+' + fmtM(ing) + '</span>' : '') +
+        (eg  ? '<span class="feed-eg">-'  + fmtM(eg)  + '</span>' : '') +
+        '</div>';
+    }
+
     div.innerHTML =
       '<div class="feed-suc" style="background:' + c + '20;color:' + c + '">' + r.sucursal + '</div>' +
       '<div class="feed-info">' +
         '<span class="feed-time">' + fdia + ' ' + hora + '</span>' +
         (r.nota ? '<span class="feed-nota">' + r.nota + '</span>' : '') +
       '</div>' +
-      '<div class="feed-nums">' +
-        '<span class="feed-ing">+' + fmtM(regIngresos(r)) + '</span>' +
-        '<span class="feed-eg">-'  + fmtM(regEgresos(r))  + '</span>' +
-      '</div>';
+      numsHtml;
     container.appendChild(div);
   });
 }
@@ -260,8 +272,9 @@ function renderChartsHome() {
   var mes  = mesActual();
   var dias = diasDeMes(mes);
 
-  document.getElementById("mes-label-home").textContent =
-    new Date().toLocaleDateString("es-AR", {month:"long",year:"numeric"}).toUpperCase();
+  var mesLabel = new Date().toLocaleDateString("es-AR", {month:"long",year:"numeric"}).toUpperCase();
+  var subtitleLinea = document.querySelector("#section-home .chart-subtitle");
+  if (subtitleLinea) subtitleLinea.textContent = "Línea del mes — " + mesLabel;
 
   var tooltipBase = { backgroundColor:"#1a1a1a", borderColor:"#2a2a2a", borderWidth:1, titleColor:"#f0f0f0", bodyColor:"#666" };
   var scalesBase  = {
@@ -291,19 +304,59 @@ function renderChartsHome() {
     var totMes = SUCURSALES.map(function(suc) {
       return dias.reduce(function(a,f){return a+sumField(f,suc,"totalIngresos");},0);
     });
+    var totalMes = totMes.reduce(function(a,b){return a+b;},0);
 
-    if (charts.barras) charts.barras.destroy();
-    charts.barras = new Chart(document.getElementById("chart-barras"), {
-      type:"bar",
-      data:{labels:SUCURSALES,datasets:[{label:"Ingresos mes",data:totMes,backgroundColor:SUCURSALES.map(function(s){return COLORS[s];}),borderRadius:5,borderSkipped:false}]},
-      options:{responsive:true,plugins:{legend:{display:false},tooltip:tooltipBase},scales:scalesBase}
-    });
-
+    // Donut único con monto + porcentaje en tooltip
     if (charts.donut) charts.donut.destroy();
     charts.donut = new Chart(document.getElementById("chart-donut"), {
-      type:"doughnut",
-      data:{labels:SUCURSALES,datasets:[{data:totMes,backgroundColor:SUCURSALES.map(function(s){return COLORS[s];}),borderColor:"#111",borderWidth:3,hoverOffset:6}]},
-      options:{cutout:"65%",plugins:{legend:{position:"bottom",labels:{color:"#666",font:{size:10},boxWidth:8,padding:8}},tooltip:{backgroundColor:"#1a1a1a",callbacks:{label:function(ctx){var t=ctx.dataset.data.reduce(function(a,b){return a+b;},0);return " "+ctx.label+": "+(t>0?(ctx.raw/t*100).toFixed(1):0)+"%";}}}}}
+      type: "doughnut",
+      data: {
+        labels: SUCURSALES,
+        datasets: [{
+          data: totMes,
+          backgroundColor: SUCURSALES.map(function(s){ return COLORS[s]; }),
+          borderColor: "#0a0a0a",
+          borderWidth: 3,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        cutout: "60%",
+        responsive: true,
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              color: "#aaa",
+              font: { size: 11, family: "Space Grotesk" },
+              boxWidth: 10, padding: 12,
+              generateLabels: function(chart) {
+                return SUCURSALES.map(function(suc, i) {
+                  var val = totMes[i];
+                  var pct = totalMes > 0 ? (val/totalMes*100).toFixed(1) : "0.0";
+                  return {
+                    text: suc + "  " + pct + "%",
+                    fillStyle: COLORS[suc],
+                    strokeStyle: COLORS[suc],
+                    index: i
+                  };
+                });
+              }
+            }
+          },
+          tooltip: {
+            backgroundColor: "#1a1a1a",
+            borderColor: "#2a2a2a",
+            borderWidth: 1,
+            callbacks: {
+              label: function(ctx) {
+                var pct = totalMes > 0 ? (ctx.raw/totalMes*100).toFixed(1) : "0.0";
+                return "  " + ctx.label + ": " + fmtFull(ctx.raw) + "  (" + pct + "%)";
+              }
+            }
+          }
+        }
+      }
     });
   }
 }
@@ -337,6 +390,43 @@ function renderObjetivos() {
   var cont  = document.getElementById("obj-cards");
   var habil = calcDiasHabiles();
   cont.innerHTML = "";
+
+  // Totales globales
+  var acumTotal = 0, metaTotal = 0;
+  SUCURSALES.forEach(function(suc) {
+    acumTotal += dias.reduce(function(a,f){return a+sumField(f,suc,"totalIngresos");},0);
+    metaTotal += obj[suc] || 0;
+  });
+  var pctTotal   = metaTotal > 0 ? Math.min((acumTotal/metaTotal)*100, 100) : 0;
+  var pctReal    = metaTotal > 0 ? ((acumTotal/metaTotal)*100).toFixed(1) : "0.0";
+  var faltaTotal = Math.max(metaTotal - acumTotal, 0);
+  var barColor   = pctTotal >= 80 ? "var(--green)" : pctTotal >= 50 ? "#f0a500" : "var(--red)";
+  var promReqGlobal = (habil.restantes > 0 && faltaTotal > 0) ? faltaTotal / habil.restantes : 0;
+  var promRealGlobal = habil.transcurridos > 0 ? acumTotal / habil.transcurridos : 0;
+
+  var globalCard = document.createElement("div");
+  globalCard.className = "obj-global-card";
+  globalCard.innerHTML =
+    '<div class="obj-global-top">' +
+      '<div>' +
+        '<div class="obj-global-label">Objetivo global — ' + new Date().toLocaleDateString("es-AR",{month:"long",year:"numeric"}) + '</div>' +
+        '<div class="obj-global-vals">' +
+          '<span class="obj-global-acum">' + fmtFull(acumTotal) + '</span>' +
+          '<span class="obj-global-sep">/</span>' +
+          '<span class="obj-global-meta">' + fmtFull(metaTotal) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="obj-global-pct" style="color:' + barColor + '">' + pctReal + '%</div>' +
+    '</div>' +
+    '<div class="obj-bar-bg" style="height:8px;margin:10px 0 6px"><div class="obj-bar-fill" style="width:' + pctTotal + '%;background:' + barColor + ';height:8px;border-radius:4px"></div></div>' +
+    '<div class="obj-global-sub">' +
+      (acumTotal >= metaTotal && metaTotal > 0
+        ? '<span style="color:var(--green);font-weight:700">✓ Objetivo global alcanzado</span>'
+        : '<span>Promedio req. <strong style="color:' + barColor + '">' + fmtFull(Math.ceil(promReqGlobal)) + '/día</strong> · ' +
+          habil.restantes + ' días hábiles restantes · Prom. real: ' + fmtM(Math.round(promRealGlobal)) + '/día</span>'
+      ) +
+    '</div>';
+  cont.appendChild(globalCard);
 
   SUCURSALES.forEach(function(suc) {
     var acum     = dias.reduce(function(a,f){return a+sumField(f,suc,"totalIngresos");},0);
@@ -437,69 +527,200 @@ function initObjetivosModal() {
   });
 }
 
-// ===================== SECCIÓN: MEDIOS DE PAGO =====================
-function renderMedios(period) {
-  periodMedios = period;
-  var fechas = period === "hoy" ? [today()] : diasDeMes(mesActual());
+// ===================== SECCIÓN: FACTURAS =====================
+var facturasMesViendo = mesActual(); // "YYYY-MM"
 
-  // Totales globales por rubro
-  var totales = {};
-  RUBROS_ING.forEach(function(r) { totales[r.id] = 0; });
-  fechas.forEach(function(f) {
-    SUCURSALES.forEach(function(suc) {
-      RUBROS_ING.forEach(function(r) {
-        totales[r.id] += sumRubro(f, suc, "ingresos", r.id);
-      });
-    });
-  });
+function semanasDelMes(mes) {
+  // Devuelve array de semanas [{label, desde, hasta}] donde desde/hasta son "YYYY-MM-DD"
+  var anio  = parseInt(mes.slice(0,4));
+  var mesN  = parseInt(mes.slice(5,7)) - 1;
+  var primer = new Date(anio, mesN, 1);
+  var ultimo  = new Date(anio, mesN + 1, 0);
+  var semanas = [];
+  var sem = 1;
+  var d = new Date(primer);
+  while (d <= ultimo) {
+    var desde = d.toISOString().slice(0,10);
+    // fin de semana: siguiente domingo o fin de mes
+    var fin = new Date(d);
+    fin.setDate(fin.getDate() + (6 - fin.getDay()));
+    if (fin > ultimo) fin = new Date(ultimo);
+    var hasta = fin.toISOString().slice(0,10);
+    semanas.push({ label: "SEM " + sem, desde: desde, hasta: hasta });
+    sem++;
+    d = new Date(fin);
+    d.setDate(d.getDate() + 1);
+  }
+  return semanas;
+}
 
-  var labels = RUBROS_ING.map(function(r){return r.label;});
-  var data   = RUBROS_ING.map(function(r){return totales[r.id];});
-  var colors = ["#f0a500","#4da6ff","#00e676","#ff6b6b","#c084fc"];
+function renderFacturas() {
+  var mes    = facturasMesViendo;
+  var anio   = mes.slice(0,4);
+  var mesN   = parseInt(mes.slice(5,7));
+  var nombres = ["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  document.getElementById("fact-mes-label").textContent = nombres[mesN] + " " + anio;
 
-  if (charts.mediosDonut) charts.mediosDonut.destroy();
-  charts.mediosDonut = new Chart(document.getElementById("chart-medios-donut"), {
-    type:"doughnut",
-    data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderColor:"#111",borderWidth:3,hoverOffset:6}]},
-    options:{cutout:"60%",plugins:{legend:{position:"bottom",labels:{color:"#666",font:{size:10},boxWidth:8,padding:8}},tooltip:{backgroundColor:"#1a1a1a",callbacks:{label:function(ctx){var t=ctx.dataset.data.reduce(function(a,b){return a+b;},0);return " "+ctx.label+": "+(t>0?(ctx.raw/t*100).toFixed(1):0)+"%  "+fmtM(ctx.raw);}}}}}
-  });
+  var semanas = semanasDelMes(mes);
+  var facturas = allFacturas || [];
+  var del_mes  = facturas.filter(function(f){ return f.fecha && f.fecha.slice(0,7) === mes; });
 
-  // Detalle por sucursal
-  var cont = document.getElementById("medios-detalle");
-  cont.innerHTML = "";
+  // Ordenar por fecha desc
+  del_mes.sort(function(a,b){ return b.fecha.localeCompare(a.fecha); });
+
+  // RESUMEN: tabla sucursal × semana
+  var thead = document.getElementById("fact-resumen-thead");
+  var tbody = document.getElementById("fact-resumen-tbody");
+
+  thead.innerHTML = "<tr><th>Sucursal</th>" +
+    semanas.map(function(s){ return "<th>" + s.label + "</th>"; }).join("") +
+    "<th>Total</th></tr>";
+
+  // Calcular totales
+  var totSem = semanas.map(function(){ return 0; });
+  var totGlobal = 0;
+  tbody.innerHTML = "";
+
   SUCURSALES.forEach(function(suc) {
-    var suctot = fechas.reduce(function(a,f){return a+sumField(f,suc,"totalIngresos");},0);
-    if (!suctot) return;
-    var card = document.createElement("div");
-    card.className = "detalle-suc-card";
-    var html = '<div class="detalle-suc-title">' + suc + '</div>';
-    RUBROS_ING.forEach(function(r) {
-      var val = fechas.reduce(function(a,f){return a+sumRubro(f,suc,"ingresos",r.id);},0);
-      if (!val) return;
-      var pct = suctot > 0 ? (val/suctot*100) : 0;
-      html +=
-        '<div class="detalle-row">' +
-          '<span class="detalle-row-label">' + r.label + '</span>' +
-          '<div class="detalle-row-right">' +
-            '<div class="detalle-mini-bar-bg"><div class="detalle-mini-bar-fill" style="width:' + pct + '%"></div></div>' +
-            '<span class="detalle-row-val">' + fmtM(val) + '</span>' +
-          '</div>' +
-        '</div>';
+    var c = COLORS[suc];
+    var rowTot = 0;
+    var celdas = semanas.map(function(s, i) {
+      var sum = del_mes.filter(function(f){
+        return f.sucursal === suc && f.fecha >= s.desde && f.fecha <= s.hasta;
+      }).reduce(function(a,f){ return a + (f.monto||0); }, 0);
+      totSem[i] += sum;
+      rowTot    += sum;
+      totGlobal += sum;
+      return "<td class='fact-td-num'>" + (sum ? fmtFull(sum) : "<span class='fact-empty'>—</span>") + "</td>";
     });
-    card.innerHTML = html;
-    cont.appendChild(card);
+    var tr = document.createElement("tr");
+    tr.innerHTML =
+      "<td><span class='fact-suc-badge' style='color:" + c + "'>" + suc + "</span></td>" +
+      celdas.join("") +
+      "<td class='fact-td-tot'>" + (rowTot ? fmtFull(rowTot) : "—") + "</td>";
+    tbody.appendChild(tr);
+  });
+
+  // Fila total
+  var trTot = document.createElement("tr");
+  trTot.className = "fact-row-total";
+  trTot.innerHTML =
+    "<td>TOTAL</td>" +
+    totSem.map(function(t){ return "<td class='fact-td-num'>" + (t ? fmtFull(t) : "—") + "</td>"; }).join("") +
+    "<td class='fact-td-tot'>" + (totGlobal ? fmtFull(totGlobal) : "—") + "</td>";
+  tbody.appendChild(trTot);
+
+  // LISTA DE FACTURAS
+  var listaTbody = document.getElementById("fact-lista-tbody");
+  listaTbody.innerHTML = "";
+  if (!del_mes.length) {
+    listaTbody.innerHTML = "<tr><td colspan='6' class='fact-empty-row'>Sin facturas para este mes.</td></tr>";
+    return;
+  }
+  del_mes.forEach(function(f) {
+    var c  = COLORS[f.sucursal] || "#888";
+    var tr = document.createElement("tr");
+    tr.innerHTML =
+      "<td><span class='fact-suc-badge' style='color:" + c + "'>" + f.sucursal + "</span></td>" +
+      "<td class='fact-td-prov'>" + (f.proveedor||"—") + "</td>" +
+      "<td class='fact-td-num'>" + (f.numero||"—") + "</td>" +
+      "<td class='fact-td-fecha'>" + (f.fecha ? f.fecha.split("-").reverse().join("/") : "—") + "</td>" +
+      "<td class='fact-td-monto'>" + fmtFull(f.monto||0) + "</td>" +
+      "<td><button class='fact-btn-del' data-id='" + f._id + "'>✕</button></td>";
+    listaTbody.appendChild(tr);
+  });
+
+  // Listeners de borrado
+  listaTbody.querySelectorAll(".fact-btn-del").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var id = btn.getAttribute("data-id");
+      if (!confirm("¿Eliminar esta factura?")) return;
+      firebase.database().ref("facturas/" + id).remove();
+    });
   });
 }
 
-function initToggleMedios() {
-  document.getElementById("toggle-medios").addEventListener("click", function(e) {
-    var btn = e.target.closest(".toggle-btn");
-    if (!btn) return;
-    document.querySelectorAll("#toggle-medios .toggle-btn").forEach(function(b){b.classList.remove("active");});
-    btn.classList.add("active");
-    renderMedios(btn.getAttribute("data-val"));
+function guardarFactura() {
+  var suc      = document.getElementById("fact-sucursal").value;
+  var prov     = document.getElementById("fact-proveedor").value.trim();
+  var numero   = document.getElementById("fact-numero").value.trim();
+  var fecha    = document.getElementById("fact-fecha").value;
+  var monto    = parseFloat(document.getElementById("fact-monto").value) || 0;
+
+  if (!suc)    { alert("Seleccioná una sucursal."); return; }
+  if (!prov)   { alert("Ingresá el proveedor."); return; }
+  if (!fecha)  { alert("Ingresá la fecha."); return; }
+  if (!monto)  { alert("Ingresá el monto."); return; }
+
+  var btn = document.getElementById("btn-guardar-fact");
+  btn.disabled = true; btn.textContent = "Guardando...";
+
+  firebase.database().ref("facturas").push({
+    sucursal:  suc,
+    proveedor: prov,
+    numero:    numero,
+    fecha:     fecha,
+    monto:     monto,
+    timestamp: Date.now()
+  })
+  .then(function() {
+    document.getElementById("fact-sucursal").value  = "";
+    document.getElementById("fact-proveedor").value = "";
+    document.getElementById("fact-numero").value    = "";
+    document.getElementById("fact-fecha").value     = "";
+    document.getElementById("fact-monto").value     = "";
+  })
+  .catch(function(e){ alert("Error al guardar: " + e.message); })
+  .finally(function(){ btn.disabled = false; btn.textContent = "+ Cargar Factura"; });
+}
+
+function exportarFacturasCSV() {
+  var mes    = facturasMesViendo;
+  var lista  = (allFacturas||[]).filter(function(f){ return f.fecha && f.fecha.slice(0,7) === mes; });
+  if (!lista.length) { alert("No hay facturas para exportar en este mes."); return; }
+  lista.sort(function(a,b){ return a.fecha.localeCompare(b.fecha); });
+
+  var csv = "Sucursal,Proveedor,N° Factura,Fecha,Monto\n";
+  lista.forEach(function(f) {
+    csv += [
+      f.sucursal, '"' + (f.proveedor||"").replace(/"/g,'""') + '"',
+      '"' + (f.numero||"") + '"',
+      f.fecha ? f.fecha.split("-").reverse().join("/") : "",
+      f.monto||0
+    ].join(",") + "\n";
+  });
+
+  var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement("a");
+  a.href = url;
+  a.download = "facturas-" + mes + ".csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function initFacturas() {
+  // Fecha default = hoy
+  document.getElementById("fact-fecha").value = today();
+
+  document.getElementById("btn-guardar-fact").addEventListener("click", guardarFactura);
+  document.getElementById("btn-export-facturas").addEventListener("click", exportarFacturasCSV);
+
+  document.getElementById("fact-mes-prev").addEventListener("click", function() {
+    var d = new Date(facturasMesViendo + "-01");
+    d.setMonth(d.getMonth() - 1);
+    facturasMesViendo = d.toISOString().slice(0,7);
+    renderFacturas();
+  });
+  document.getElementById("fact-mes-next").addEventListener("click", function() {
+    var d = new Date(facturasMesViendo + "-01");
+    d.setMonth(d.getMonth() + 1);
+    facturasMesViendo = d.toISOString().slice(0,7);
+    renderFacturas();
   });
 }
+
+
 
 // ===================== SECCIÓN: EGRESOS =====================
 function renderEgresos(period) {
@@ -522,9 +743,19 @@ function renderEgresos(period) {
 
   if (charts.egresosDonut) charts.egresosDonut.destroy();
   charts.egresosDonut = new Chart(document.getElementById("chart-egresos-donut"), {
-    type:"doughnut",
-    data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderColor:"#111",borderWidth:3,hoverOffset:6}]},
-    options:{cutout:"60%",plugins:{legend:{position:"bottom",labels:{color:"#666",font:{size:10},boxWidth:8,padding:8}},tooltip:{backgroundColor:"#1a1a1a",callbacks:{label:function(ctx){var t=ctx.dataset.data.reduce(function(a,b){return a+b;},0);return " "+ctx.label+": "+(t>0?(ctx.raw/t*100).toFixed(1):0)+"%  "+fmtM(ctx.raw);}}}}}
+    type: "doughnut",
+    data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderColor: "#111", borderWidth: 2, hoverOffset: 5 }] },
+    options: {
+      cutout: "72%",
+      responsive: true,
+      plugins: {
+        legend: { position: "right", labels: { color: "#888", font: { size: 10, family: "Space Grotesk" }, boxWidth: 8, padding: 10 } },
+        tooltip: { backgroundColor: "#1a1a1a", callbacks: { label: function(ctx) {
+          var t = ctx.dataset.data.reduce(function(a,b){return a+b;},0);
+          return "  " + ctx.label + ": " + fmtM(ctx.raw) + " (" + (t>0?(ctx.raw/t*100).toFixed(1):0) + "%)";
+        }}}
+      }
+    }
   });
 
   var cont = document.getElementById("egresos-detalle");
@@ -730,33 +961,6 @@ function renderHistorial(period) {
     options:{responsive:true,plugins:{legend:{labels:{color:"#888",font:{size:10,family:"Space Grotesk"},boxWidth:8}},tooltip:tooltipBase},scales:scalesBase}
   });
 
-  // Acumulado vs objetivo
-  var obj = getObjetivos();
-  var vsObj = document.getElementById("hist-vs-obj");
-  vsObj.innerHTML = "";
-
-  var mesFechas = period === "anterior" ? diasDeMes(mesAnt) : diasDeMes(mes);
-  SUCURSALES.forEach(function(suc) {
-    var acum = mesFechas.reduce(function(a,f){return a+sumField(f,suc,"totalIngresos");},0);
-    var meta = obj[suc] || 0;
-    var pct  = meta > 0 ? Math.min((acum/meta)*100,100) : 0;
-    var pctReal = meta > 0 ? ((acum/meta)*100).toFixed(1) : "0.0";
-    var barColor = pct>=80?"var(--green)":pct>=50?"#f0a500":"var(--red)";
-    var card = document.createElement("div");
-    card.className = "hist-vs-card";
-    card.innerHTML =
-      '<div class="hist-vs-top">' +
-        '<span class="hist-vs-suc">' + suc + '</span>' +
-        '<span class="hist-vs-pct" style="color:' + barColor + '">' + pctReal + '%</span>' +
-      '</div>' +
-      '<div class="hist-bar-bg"><div class="hist-bar-fill" style="width:' + pct + '%;background:' + barColor + '"></div></div>' +
-      '<div class="hist-vs-nums">' +
-        '<span>' + fmtFull(acum) + '</span>' +
-        '<span>/ ' + fmtFull(meta) + '</span>' +
-      '</div>';
-    vsObj.appendChild(card);
-  });
-
   // Tabla de días
   var tabla = document.getElementById("hist-tabla");
   tabla.innerHTML = "";
@@ -898,15 +1102,24 @@ function initFirebase() {
         });
       });
     }
-    // Re-renderizar la sección activa
     renderHome();
     renderCierreStrip();
     renderEfectivoTabla(snap);
     if (sectionActual === "objetivos") renderObjetivos();
-    if (sectionActual === "medios")    renderMedios(periodMedios);
     if (sectionActual === "egresos")   renderEgresos(periodEgresos);
     if (sectionActual === "merma")     renderMerma();
     if (sectionActual === "historial") renderHistorial(periodHist);
+  });
+
+  // Listener de facturas
+  firebase.database().ref("facturas").on("value", function(snap) {
+    allFacturas = [];
+    if (snap.exists()) {
+      snap.forEach(function(child) {
+        allFacturas.push(Object.assign({ _id: child.key }, child.val()));
+      });
+    }
+    if (sectionActual === "facturas") renderFacturas();
   });
 }
 
@@ -926,7 +1139,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   initNav();
   initObjetivosModal();
-  initToggleMedios();
+  initFacturas();
   initToggleEgresos();
   initToggleHist();
   initFirebase();

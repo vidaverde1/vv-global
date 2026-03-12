@@ -32,7 +32,7 @@
     <ul class="sidebar-menu">
       <li class="menu-item active" data-section="home"><span class="menu-icon">⬡</span>Dashboard</li>
       <li class="menu-item" data-section="objetivos"><span class="menu-icon">◎</span>Objetivos</li>
-      <li class="menu-item" data-section="medios"><span class="menu-icon">◈</span>Medios de Pago</li>
+      <li class="menu-item" data-section="facturas"><span class="menu-icon">◧</span>Facturas</li>
       <li class="menu-item" data-section="egresos"><span class="menu-icon">◑</span>Egresos</li>
       <li class="menu-item" data-section="merma"><span class="menu-icon">◫</span>Merma</li>
       <li class="menu-item" data-section="historial"><span class="menu-icon">◷</span>Historial</li>
@@ -74,16 +74,13 @@
       <div class="block-title">Por sucursal — hoy</div>
       <div class="suc-grid" id="suc-grid-home"></div>
 
-      <div class="block-title" id="mes-label-home">Evolución del mes</div>
-      <div class="chart-card"><canvas id="chart-linea"></canvas></div>
-
       <div class="charts-row2">
         <div class="chart-card">
-          <div class="chart-subtitle">Acumulado por sucursal</div>
-          <canvas id="chart-barras"></canvas>
+          <div class="chart-subtitle">Línea del mes</div>
+          <canvas id="chart-linea"></canvas>
         </div>
-        <div class="chart-card">
-          <div class="chart-subtitle">Participación %</div>
+        <div class="chart-card chart-card-donut">
+          <div class="chart-subtitle">Participación por sucursal</div>
           <canvas id="chart-donut"></canvas>
         </div>
       </div>
@@ -132,19 +129,86 @@
       <div id="obj-cards"></div>
     </section>
 
-    <!-- MEDIOS DE PAGO -->
-    <section class="section" id="section-medios">
-      <div class="section-desc">Distribución de ingresos por medio de pago</div>
-      <div class="toggle-row" id="toggle-medios">
-        <button class="toggle-btn active" data-val="hoy">Hoy</button>
-        <button class="toggle-btn" data-val="mes">Este mes</button>
+    <!-- FACTURAS -->
+    <section class="section" id="section-facturas">
+      <div class="section-top-row">
+        <div class="section-desc">Carga y seguimiento de facturas de proveedores</div>
+        <button class="btn-outline" id="btn-export-facturas">↓ Exportar CSV</button>
       </div>
-      <div class="chart-card">
-        <div class="chart-subtitle">Distribución global</div>
-        <canvas id="chart-medios-donut"></canvas>
+
+      <!-- FORMULARIO DE CARGA -->
+      <div class="fact-form-card">
+        <div class="block-title" style="margin-top:0">Nueva factura</div>
+        <div class="fact-form-grid">
+          <div class="fact-field">
+            <label>Sucursal</label>
+            <div class="select-wrap-dark">
+              <select id="fact-sucursal">
+                <option value="">— Seleccioná —</option>
+                <option value="NAZCA">NAZCA</option>
+                <option value="OLAZABAL">OLAZABAL</option>
+                <option value="CUENCA">CUENCA</option>
+                <option value="BEIRO">BEIRO</option>
+                <option value="GOYENA">GOYENA</option>
+              </select>
+            </div>
+          </div>
+          <div class="fact-field">
+            <label>Proveedor</label>
+            <input type="text" id="fact-proveedor" placeholder="Nombre del proveedor">
+          </div>
+          <div class="fact-field">
+            <label>N° Factura</label>
+            <input type="text" id="fact-numero" placeholder="0000-00000000">
+          </div>
+          <div class="fact-field">
+            <label>Fecha</label>
+            <input type="date" id="fact-fecha">
+          </div>
+          <div class="fact-field">
+            <label>Monto</label>
+            <div class="fact-monto-wrap">
+              <span class="fact-prefix">$</span>
+              <input type="number" id="fact-monto" min="0" step="1" placeholder="0">
+            </div>
+          </div>
+        </div>
+        <button class="btn-guardar-fact" id="btn-guardar-fact">+ Cargar Factura</button>
       </div>
-      <div class="block-title">Detalle por sucursal</div>
-      <div id="medios-detalle"></div>
+
+      <!-- RESUMEN SEMANAS × SUCURSAL -->
+      <div class="block-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Resumen por semana</span>
+        <div class="fact-mes-nav">
+          <button class="fact-nav-btn" id="fact-mes-prev">‹</button>
+          <span id="fact-mes-label">—</span>
+          <button class="fact-nav-btn" id="fact-mes-next">›</button>
+        </div>
+      </div>
+      <div class="fact-resumen-wrap">
+        <table class="fact-resumen-tabla" id="fact-resumen-tabla">
+          <thead id="fact-resumen-thead"></thead>
+          <tbody id="fact-resumen-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- LISTA DE FACTURAS -->
+      <div class="block-title">Detalle de facturas</div>
+      <div class="fact-lista-wrap">
+        <table class="fact-lista-tabla">
+          <thead>
+            <tr>
+              <th>Sucursal</th>
+              <th>Proveedor</th>
+              <th>N° Factura</th>
+              <th>Fecha</th>
+              <th>Monto</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="fact-lista-tbody"></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- EGRESOS -->
@@ -182,8 +246,6 @@
         <div class="chart-subtitle">Ingresos diarios por sucursal</div>
         <canvas id="chart-hist"></canvas>
       </div>
-      <div class="block-title">Acumulado vs Objetivo</div>
-      <div id="hist-vs-obj"></div>
       <div class="block-title">Tabla de días</div>
       <div class="tabla-wrap" id="hist-tabla"></div>
     </section>

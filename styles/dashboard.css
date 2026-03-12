@@ -1151,3 +1151,338 @@ body {
   .obj-field-row label { font-size: .88rem; }
   .obj-input-wrap input { font-size: .9rem; }
 }
+
+/* ===================== FACTURAS ===================== */
+.fact-form-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px 20px;
+  margin-bottom: 8px;
+}
+
+.fact-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.fact-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.fact-field label {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.fact-field input,
+.fact-field select {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: .85rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color .2s;
+  width: 100%;
+}
+.fact-field input:focus,
+.fact-field select:focus { border-color: var(--green); }
+.fact-field input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.5); cursor: pointer; }
+
+.select-wrap-dark {
+  position: relative;
+}
+.select-wrap-dark select { appearance: none; padding-right: 28px; cursor: pointer; }
+.select-wrap-dark::after {
+  content: "▾";
+  position: absolute;
+  right: 10px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: .75rem;
+  pointer-events: none;
+}
+
+.fact-monto-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.fact-monto-wrap:focus-within { border-color: var(--green); }
+.fact-prefix {
+  padding: 8px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .8rem;
+  color: var(--muted);
+  background: var(--border);
+  flex-shrink: 0;
+}
+.fact-monto-wrap input {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 10px;
+}
+
+.btn-guardar-fact {
+  width: 100%;
+  padding: 11px;
+  background: var(--green);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: .88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+.btn-guardar-fact:hover    { opacity: .85; }
+.btn-guardar-fact:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Navegación de mes */
+.fact-mes-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .78rem;
+  color: var(--text);
+  font-weight: 600;
+  margin-top: 0;
+}
+.fact-nav-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--muted2);
+  border-radius: 5px;
+  width: 26px; height: 26px;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s;
+}
+.fact-nav-btn:hover { border-color: var(--green); color: var(--green); }
+
+/* Tabla resumen semanas */
+.fact-resumen-wrap {
+  overflow-x: auto;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+.fact-resumen-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 500px;
+}
+.fact-resumen-tabla thead tr {
+  background: var(--bg3);
+}
+.fact-resumen-tabla th {
+  padding: 9px 14px;
+  text-align: right;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.fact-resumen-tabla th:first-child { text-align: left; }
+.fact-resumen-tabla td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  font-size: .8rem;
+}
+.fact-resumen-tabla td:first-child { text-align: left; }
+.fact-resumen-tabla tbody tr:hover td { background: var(--bg3); }
+.fact-resumen-tabla tbody tr:last-child td { border-bottom: none; }
+
+.fact-row-total td {
+  font-weight: 700;
+  background: var(--bg3);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .78rem;
+  color: var(--text);
+  border-top: 1px solid var(--border2);
+}
+.fact-td-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .8rem;
+  color: var(--muted2);
+}
+.fact-td-tot {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--green);
+}
+.fact-empty { color: var(--border2); }
+
+/* Tabla lista facturas */
+.fact-lista-wrap {
+  overflow-x: auto;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.fact-lista-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 500px;
+}
+.fact-lista-tabla thead tr { background: var(--bg3); }
+.fact-lista-tabla th {
+  padding: 9px 14px;
+  text-align: left;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.fact-lista-tabla td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: .8rem;
+  vertical-align: middle;
+}
+.fact-lista-tabla tbody tr:last-child td { border-bottom: none; }
+.fact-lista-tabla tbody tr:hover td { background: var(--bg3); }
+
+.fact-suc-badge {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.fact-td-prov   { font-weight: 600; color: var(--text); }
+.fact-td-fecha  { font-family: 'JetBrains Mono', monospace; font-size: .78rem; color: var(--muted2); white-space: nowrap; }
+.fact-td-monto  { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--text); white-space: nowrap; }
+.fact-empty-row { text-align: center; color: var(--muted); padding: 28px !important; font-style: italic; }
+
+.fact-btn-del {
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  border-radius: 5px;
+  width: 24px; height: 24px;
+  cursor: pointer;
+  font-size: .7rem;
+  transition: all .2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.fact-btn-del:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+
+/* ===================== OBJ GLOBAL CARD ===================== */
+.obj-global-card {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.obj-global-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--green), #00e67644);
+}
+.obj-global-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.obj-global-label {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.obj-global-vals {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.obj-global-acum {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.obj-global-sep { color: var(--muted); font-size: .9rem; }
+.obj-global-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .85rem;
+  color: var(--muted2);
+}
+.obj-global-pct {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.obj-global-sub {
+  font-size: .75rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.obj-global-sub strong { font-weight: 700; }
+
+/* ===================== FEED BADGES ===================== */
+.feed-badge-tipo {
+  font-size: .68rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.feed-merma  { background: #f59e0b22; color: #f59e0b; }
+.feed-cierre { background: #7c3aed22; color: #a78bfa; }
+
+/* ===================== HOME CHARTS LAYOUT ===================== */
+.charts-row2 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.chart-card-donut canvas {
+  max-height: 280px;
+}
+
+@media (max-width: 700px) {
+  .charts-row2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===================== EGRESOS DONUT — COMPACTO ===================== */
+#chart-egresos-donut {
+  max-height: 200px;
+}
