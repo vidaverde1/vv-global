@@ -352,9 +352,11 @@ function renderParticipacion(totMes) {
                   var val = totMes[i];
                   var pct = totalMes > 0 ? (val/totalMes*100).toFixed(1) : "0.0";
                   return {
-                    text: suc + "  " + pct + "%",
-                    fillStyle: COLORS[suc],
+                    text:        suc + "  " + pct + "%",
+                    fillStyle:   COLORS[suc],
                     strokeStyle: COLORS[suc],
+                    fontColor:   "#aaa",
+                    color:       "#aaa",
                     index: i
                   };
                 });
