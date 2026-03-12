@@ -1518,3 +1518,85 @@ body {
 }
 .chart-view-btn:hover  { color: var(--text); }
 .chart-view-btn.active { background: var(--border2); color: var(--text); }
+
+/* ===================== LOGIN DASHBOARD ===================== */
+.db-login-screen {
+  position: fixed;
+  inset: 0;
+  background: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.db-login-screen.hidden { display: none; }
+
+.db-login-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+  box-shadow: 0 24px 60px #00000088;
+}
+.db-login-logo {
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.db-login-logo span { color: var(--green); }
+.db-login-title {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 28px;
+}
+.db-login-sub {
+  font-size: .85rem;
+  color: var(--muted2);
+  margin-bottom: 16px;
+}
+.db-login-field input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 9px;
+  padding: 12px 14px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1rem;
+  color: var(--text);
+  text-align: center;
+  letter-spacing: 3px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color .2s;
+}
+.db-login-field input:focus { border-color: var(--green); }
+.db-login-error {
+  font-size: .78rem;
+  color: var(--red);
+  margin-top: 8px;
+}
+.db-login-error.hidden { display: none; }
+.db-login-btn {
+  margin-top: 18px;
+  width: 100%;
+  padding: 12px;
+  background: var(--green);
+  color: #000;
+  border: none;
+  border-radius: 9px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: .95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+.db-login-btn:hover    { opacity: .85; }
+.db-login-btn:disabled { opacity: .4; cursor: not-allowed; }

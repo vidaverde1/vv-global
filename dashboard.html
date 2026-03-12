@@ -21,6 +21,20 @@
 </head>
 <body>
 
+  <!-- PANTALLA DE LOGIN DASHBOARD -->
+  <div id="pantalla-login" class="db-login-screen">
+    <div class="db-login-card">
+      <div class="db-login-logo">VV<span>GLOBAL</span></div>
+      <div class="db-login-title">Dashboard</div>
+      <div class="db-login-sub">Ingresá la clave de acceso</div>
+      <div class="db-login-field">
+        <input type="password" id="db-login-input" placeholder="Clave" autocomplete="current-password">
+      </div>
+      <div class="db-login-error hidden" id="db-login-error">Clave incorrecta</div>
+      <button class="db-login-btn" id="db-login-btn">Ingresar</button>
+    </div>
+  </div>
+
   <div class="nav-overlay" id="nav-overlay"></div>
 
   <!-- MENÚ LATERAL -->
@@ -45,7 +59,7 @@
   <!-- TOPBAR -->
   <header class="topbar">
     <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
-    <div class="topbar-center" id="section-title">Verde Tokio S.R.L</div>
+    <div class="topbar-center" id="section-title">Dashboard</div>
     <div class="reloj" id="reloj">--:--</div>
   </header>
 
@@ -234,7 +248,7 @@
 
     <!-- MERMA -->
     <section class="section" id="section-merma">
-      <div class="section-desc">Merma — mes actual</div>
+      <div class="section-desc">Mercadería perdida, vencida o deteriorada — mes actual</div>
       <div class="merma-global-strip" id="merma-global-strip"></div>
       <div class="block-title">Detalle por sucursal</div>
       <div id="merma-detalle"></div>
@@ -261,7 +275,7 @@
   <script src="js/dashboard.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/vv-global/js/sw.js");
+      navigator.serviceWorker.register("/vv-global/sw.js");
     }
   </script>
 </body>

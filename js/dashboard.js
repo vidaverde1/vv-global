@@ -30,7 +30,92 @@ var OBJETIVOS_DEFAULT = {
   BEIRO: 23000000, GOYENA: 26000000
 };
 
-// ===================== ESTADO =====================
+// ===================== AUTH DASHBOARD =====================
+var AUTH_KEY      = "vvglobal_dash_auth"; // localStorage key
+var AUTH_DURATION = 8 * 60 * 60 * 1000;  // 8 horas
+
+function dashAuthValida() {
+  try {
+    var raw = localStorage.getItem(AUTH_KEY);
+    if (!raw) return false;
+    var data = JSON.parse(raw);
+    return (Date.now() - data.ts) < AUTH_DURATION;
+  } catch(e) { return false; }
+}
+
+function guardarDashAuth() {
+  localStorage.setItem(AUTH_KEY, JSON.stringify({ ts: Date.now() }));
+}
+
+function initDashLogin() {
+  var pantalla = document.getElementById("pantalla-login");
+  var input    = document.getElementById("db-login-input");
+  var btn      = document.getElementById("db-login-btn");
+  var errEl    = document.getElementById("db-login-error");
+
+  // Si ya está autenticado, ocultamos la pantalla y arrancamos
+  if (dashAuthValida()) {
+    pantalla.classList.add("hidden");
+    return true;
+  }
+
+  pantalla.classList.remove("hidden");
+
+  function intentarLogin() {
+    var clave = input.value.trim();
+    if (!clave) return;
+    btn.disabled = true;
+    btn.textContent = "Verificando...";
+    errEl.classList.add("hidden");
+
+    firebase.database().ref("config/claves/dashboard").once("value")
+      .then(function(snap) {
+        var ok = !snap.exists() || clave === String(snap.val()).trim();
+        if (ok) {
+          guardarDashAuth();
+          pantalla.classList.add("hidden");
+          // Arrancar la app
+          initApp();
+        } else {
+          errEl.classList.remove("hidden");
+          input.value = "";
+          input.focus();
+        }
+      })
+      .catch(function() {
+        errEl.textContent = "Error de conexión. Intentá de nuevo.";
+        errEl.classList.remove("hidden");
+      })
+      .finally(function() {
+        btn.disabled = false;
+        btn.textContent = "Ingresar";
+      });
+  }
+
+  btn.addEventListener("click", intentarLogin);
+  input.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") intentarLogin();
+  });
+  input.focus();
+  return false;
+}
+
+// Helper: pide clave admin (dashboard) para acciones protegidas
+// Devuelve Promise<boolean>
+function pedirClaveAdmin() {
+  return new Promise(function(resolve) {
+    var clave = prompt("Ingresá la clave de administrador:");
+    if (!clave) { resolve(false); return; }
+    firebase.database().ref("config/claves/admin").once("value")
+      .then(function(snap) {
+        var ok = !snap.exists() || clave.trim() === String(snap.val()).trim();
+        resolve(ok);
+      })
+      .catch(function() { resolve(false); });
+  });
+}
+
+
 var allData    = {};
 var allFacturas = [];
 var charts     = {};
@@ -563,14 +648,9 @@ function initObjetivosModal() {
   var fields    = document.getElementById("obj-fields");
 
   btnEdit.addEventListener("click", function() {
-    // Pedir clave del dashboard
-    var clave = prompt("Ingresá la clave de administrador:");
-    if (!clave) return;
-    firebase.database().ref("config/claves/dashboard").once("value")
-      .then(function(snap) {
-        var ok = !snap.exists() || String(clave).trim() === String(snap.val()).trim();
-        if (!ok) { alert("Clave incorrecta."); return; }
-        var obj = getObjetivos();
+    pedirClaveAdmin().then(function(ok) {
+      if (!ok) { alert("Clave incorrecta."); return; }
+      var obj = getObjetivos();
         fields.innerHTML = "";
         SUCURSALES.forEach(function(suc) {
           var row = document.createElement("div");
@@ -707,8 +787,11 @@ function renderFacturas() {
   listaTbody.querySelectorAll(".fact-btn-del").forEach(function(btn) {
     btn.addEventListener("click", function() {
       var id = btn.getAttribute("data-id");
-      if (!confirm("¿Eliminar esta factura?")) return;
-      firebase.database().ref("facturas/" + id).remove();
+      pedirClaveAdmin().then(function(ok) {
+        if (!ok) { alert("Clave incorrecta."); return; }
+        if (!confirm("¿Eliminar esta factura?")) return;
+        firebase.database().ref("facturas/" + id).remove();
+      });
     });
   });
 }
@@ -726,25 +809,33 @@ function guardarFactura() {
   if (!monto)  { alert("Ingresá el monto."); return; }
 
   var btn = document.getElementById("btn-guardar-fact");
-  btn.disabled = true; btn.textContent = "Guardando...";
+  btn.disabled = true; btn.textContent = "Verificando...";
 
-  firebase.database().ref("facturas").push({
-    sucursal:  suc,
-    proveedor: prov,
-    numero:    numero,
-    fecha:     fecha,
-    monto:     monto,
-    timestamp: Date.now()
-  })
-  .then(function() {
-    document.getElementById("fact-sucursal").value  = "";
-    document.getElementById("fact-proveedor").value = "";
-    document.getElementById("fact-numero").value    = "";
-    document.getElementById("fact-fecha").value     = "";
-    document.getElementById("fact-monto").value     = "";
-  })
-  .catch(function(e){ alert("Error al guardar: " + e.message); })
-  .finally(function(){ btn.disabled = false; btn.textContent = "+ Cargar Factura"; });
+  pedirClaveAdmin().then(function(ok) {
+    if (!ok) {
+      alert("Clave incorrecta. No se guardó la factura.");
+      btn.disabled = false; btn.textContent = "+ Cargar Factura";
+      return;
+    }
+    btn.textContent = "Guardando...";
+    firebase.database().ref("facturas").push({
+      sucursal:  suc,
+      proveedor: prov,
+      numero:    numero,
+      fecha:     fecha,
+      monto:     monto,
+      timestamp: Date.now()
+    })
+    .then(function() {
+      document.getElementById("fact-sucursal").value  = "";
+      document.getElementById("fact-proveedor").value = "";
+      document.getElementById("fact-numero").value    = "";
+      document.getElementById("fact-fecha").value     = today();
+      document.getElementById("fact-monto").value     = "";
+    })
+    .catch(function(e){ alert("Error al guardar: " + e.message); })
+    .finally(function(){ btn.disabled = false; btn.textContent = "+ Cargar Factura"; });
+  });
 }
 
 function exportarFacturasCSV() {
@@ -1197,14 +1288,7 @@ function initFirebase() {
 }
 
 // ===================== INIT =====================
-document.addEventListener("DOMContentLoaded", function() {
-  // Chart.js defaults — evita fuente negra en modo oscuro
-  if (window.Chart) {
-    Chart.defaults.color = "#888";
-    Chart.defaults.font.family = "Space Grotesk, sans-serif";
-    Chart.defaults.font.size   = 11;
-  }
-
+function initApp() {
   // Fecha
   document.getElementById("fecha-hoy").textContent =
     new Date().toLocaleDateString("es-AR", {weekday:"long",day:"numeric",month:"long",year:"numeric"}).toUpperCase();
@@ -1224,4 +1308,17 @@ document.addEventListener("DOMContentLoaded", function() {
   initToggleEgresos();
   initToggleHist();
   initFirebase();
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  // Chart.js defaults — evita fuente negra en modo oscuro
+  if (window.Chart) {
+    Chart.defaults.color = "#888";
+    Chart.defaults.font.family = "Space Grotesk, sans-serif";
+    Chart.defaults.font.size   = 11;
+  }
+
+  // Login gate: si ya está autenticado arranca directo, si no espera el login
+  var yaAutenticado = initDashLogin();
+  if (yaAutenticado) initApp();
 });
