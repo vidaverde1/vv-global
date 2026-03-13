@@ -93,7 +93,7 @@ function initDashLogin() {
   }
 
   btn.addEventListener("click", intentarLogin);
-  input.addEventListener("keydown", function(e) {
+  input.addEventListener("keyup", function(e) {
     if (e.key === "Enter") intentarLogin();
   });
   input.focus();
