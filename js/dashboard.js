@@ -300,6 +300,7 @@ function renderHome() {
 
   renderFeed();
   renderChartsHome();
+  renderSemanal();
 }
 
 function renderFeed() {
@@ -1162,6 +1163,132 @@ function initToggleHist() {
   });
 }
 
+// ===================== SECCIÓN: SEMANAL =====================
+function semanasDelMesActual() {
+  var hoy    = new Date();
+  var anio   = hoy.getFullYear();
+  var mesN   = hoy.getMonth();
+  var primer = new Date(anio, mesN, 1);
+  var ultimo  = new Date(anio, mesN + 1, 0);
+  var semanas = [];
+  var sem = 1;
+  var d = new Date(primer);
+  while (d <= ultimo) {
+    var desde = d.toISOString().slice(0,10);
+    var fin   = new Date(d);
+    fin.setDate(fin.getDate() + (6 - fin.getDay()));
+    if (fin > ultimo) fin = new Date(ultimo);
+    var hasta = fin.toISOString().slice(0,10);
+    semanas.push({ label: "SEM " + sem, desde: desde, hasta: hasta });
+    sem++;
+    d = new Date(fin);
+    d.setDate(d.getDate() + 1);
+  }
+  return semanas;
+}
+
+function semanaActual() {
+  var hoy     = today();
+  var semanas = semanasDelMesActual();
+  for (var i = 0; i < semanas.length; i++) {
+    if (hoy >= semanas[i].desde && hoy <= semanas[i].hasta) return semanas[i];
+  }
+  return semanas[semanas.length - 1];
+}
+
+function renderSemanal() {
+  // Solo renderizar si los elementos existen en el DOM
+  var compTbody = document.getElementById("semanal-compras-tbody");
+  var ventTbody = document.getElementById("semanal-ventas-tbody");
+  if (!compTbody || !ventTbody) return;
+  var semanas  = semanasDelMesActual();
+  var semHoy   = semanaActual();
+  var facturas = allFacturas || [];
+
+  // COMPRAS: facturas + egresos proveedores/insumos
+  var comprasSems = semanas.map(function(s) {
+    var factTotal = facturas
+      .filter(function(f) { return f.fecha && f.fecha >= s.desde && f.fecha <= s.hasta; })
+      .reduce(function(a, f) { return a + (f.monto || 0); }, 0);
+
+    var egTotal = 0;
+    Object.keys(allData).forEach(function(fecha) {
+      if (fecha < s.desde || fecha > s.hasta) return;
+      SUCURSALES.forEach(function(suc) {
+        (allData[fecha][suc] || []).forEach(function(r) {
+          var eg = (r.tipo === "movimientos" || !r.tipo) ? (r.egresos || {}) : {};
+          egTotal += eg["proveedores"] || 0;
+          egTotal += eg["insumos"]     || 0;
+        });
+      });
+    });
+    return { label: s.label, desde: s.desde, facturas: factTotal, egresos: egTotal, total: factTotal + egTotal };
+  });
+
+  // VENTAS: todos los medios de pago
+  var ventasSems = semanas.map(function(s) {
+    var efectivo = 0, digital = 0;
+    Object.keys(allData).forEach(function(fecha) {
+      if (fecha < s.desde || fecha > s.hasta) return;
+      SUCURSALES.forEach(function(suc) {
+        (allData[fecha][suc] || []).forEach(function(r) {
+          var v = (r.tipo === "ventas") ? (r.ventas || {}) : (!r.tipo ? (r.ingresos || {}) : {});
+          efectivo += v["efectivo"]      || 0;
+          digital  += v["debito"]        || 0;
+          digital  += v["credito"]       || 0;
+          digital  += v["transferencia"] || 0;
+          digital  += v["mercadopago"]   || 0;
+        });
+      });
+    });
+    return { label: s.label, desde: s.desde, efectivo: efectivo, digital: digital, total: efectivo + digital };
+  });
+
+  // Totales semana actual
+  var compSemActual = comprasSems.find(function(s) { return s.desde === semHoy.desde; }) || { total: 0 };
+  var ventSemActual = ventasSems.find(function(s)  { return s.desde === semHoy.desde; }) || { total: 0 };
+  document.getElementById("semanal-compras-total").textContent = fmtFull(compSemActual.total);
+  document.getElementById("semanal-ventas-total").textContent  = fmtFull(ventSemActual.total);
+
+  // Tabla compras
+  var compTbody = document.getElementById("semanal-compras-tbody");
+  compTbody.innerHTML = "";
+  comprasSems.forEach(function(s) {
+    var activo = s.desde === semHoy.desde;
+    var tr = document.createElement("tr");
+    if (activo) tr.className = "semanal-row-actual";
+    tr.innerHTML =
+      '<td><span class="semanal-sem-label">' + s.label + '</span>' + (activo ? ' <span class="semanal-badge-actual">actual</span>' : '') + '</td>' +
+      '<td class="semanal-td-num">' + (s.facturas ? fmtM(s.facturas) : '—') + '</td>' +
+      '<td class="semanal-td-num">' + (s.egresos  ? fmtM(s.egresos)  : '—') + '</td>' +
+      '<td class="semanal-td-tot">' + (s.total    ? fmtM(s.total)    : '—') + '</td>';
+    compTbody.appendChild(tr);
+  });
+
+  // Tabla ventas
+  var ventTbody = document.getElementById("semanal-ventas-tbody");
+  ventTbody.innerHTML = "";
+  ventasSems.forEach(function(s) {
+    var activo = s.desde === semHoy.desde;
+    var tr = document.createElement("tr");
+    if (activo) tr.className = "semanal-row-actual";
+    tr.innerHTML =
+      '<td><span class="semanal-sem-label">' + s.label + '</span>' + (activo ? ' <span class="semanal-badge-actual">actual</span>' : '') + '</td>' +
+      '<td class="semanal-td-num">' + (s.efectivo ? fmtM(s.efectivo) : '—') + '</td>' +
+      '<td class="semanal-td-num">' + (s.digital  ? fmtM(s.digital)  : '—') + '</td>' +
+      '<td class="semanal-td-tot">' + (s.total    ? fmtM(s.total)    : '—') + '</td>';
+    ventTbody.appendChild(tr);
+  });
+}
+
+function initSemanal() {
+  document.querySelectorAll(".semanal-ver-mas").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      goToSection(btn.getAttribute("data-goto"));
+    });
+  });
+}
+
 // ===================== CIERRE DE CAJA + TOTAL EFECTIVO =====================
 function renderEfectivoTabla() {
   // Ya no hay tabla de efectivo — la info está en renderCierreStrip
@@ -1274,6 +1401,7 @@ function initApp() {
   initNav();
   initObjetivosModal();
   initFacturas();
+  initSemanal();
   initToggleParticipacion();
   initToggleEgresos();
   initToggleHist();

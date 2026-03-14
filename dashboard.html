@@ -118,6 +118,49 @@
         </div>
       </div>
 
+      <div class="block-title">📊 Resumen semanal</div>
+      <div class="semanal-grid">
+
+        <!-- COMPRAS -->
+        <div class="semanal-card">
+          <div class="semanal-card-header">
+            <div>
+              <div class="semanal-card-title">🧾 Compras semanales</div>
+              <div class="semanal-card-sub">Facturas + egresos insumos/proveedores</div>
+            </div>
+            <button class="semanal-ver-mas" data-goto="facturas">Ver más →</button>
+          </div>
+          <div class="semanal-total-row">
+            <span class="semanal-total-label">Total semana actual</span>
+            <span class="semanal-total-val red" id="semanal-compras-total">—</span>
+          </div>
+          <table class="semanal-tabla">
+            <thead><tr><th>Semana</th><th>Facturas</th><th>Egresos</th><th>Total</th></tr></thead>
+            <tbody id="semanal-compras-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- VENTAS -->
+        <div class="semanal-card">
+          <div class="semanal-card-header">
+            <div>
+              <div class="semanal-card-title">💰 Ventas semanales</div>
+              <div class="semanal-card-sub">Todos los medios de pago · todas las sucursales</div>
+            </div>
+            <button class="semanal-ver-mas" data-goto="historial">Ver más →</button>
+          </div>
+          <div class="semanal-total-row">
+            <span class="semanal-total-label">Total semana actual</span>
+            <span class="semanal-total-val green" id="semanal-ventas-total">—</span>
+          </div>
+          <table class="semanal-tabla">
+            <thead><tr><th>Semana</th><th>Efectivo</th><th>Digital</th><th>Total</th></tr></thead>
+            <tbody id="semanal-ventas-tbody"></tbody>
+          </table>
+        </div>
+
+      </div>
+
     </section>
 
     <!-- OBJETIVOS -->
