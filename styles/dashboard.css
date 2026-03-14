@@ -1600,3 +1600,71 @@ body {
 }
 .db-login-btn:hover    { opacity: .85; }
 .db-login-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ===================== EFECTIVO + CIERRE FUSIONADOS ===================== */
+.ef-cierre-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 14px;
+}
+.ef-cierre-ok {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--green);
+}
+.ef-cierre-hora {
+  font-size: .65rem;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.ef-cierre-pend {
+  font-size: .75rem;
+  color: var(--muted);
+}
+.ef-muted {
+  color: var(--border2);
+  font-size: .8rem;
+}
+.ef-total-row td {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted2);
+  background: var(--bg3);
+  border-top: 1px solid var(--border2);
+  padding: 10px 14px;
+}
+
+/* ===================== CIERRE TOTAL BANNER ===================== */
+.cierre-total-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.cierre-total-label {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cierre-total-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--green);
+}
+
+/* Valor contado en verde dentro de cada card de cierre */
+.cs-contado-verde {
+  color: var(--green) !important;
+  font-weight: 700;
+}

@@ -1162,80 +1162,39 @@ function initToggleHist() {
   });
 }
 
-// ===================== EFECTIVO POR SUCURSAL =====================
-function renderEfectivoTabla(snapTotal) {
-  var tbody = document.getElementById("efectivo-tbody");
-  if (!tbody) return;
-
-  // Calcular saldo de efectivo para cada sucursal
-  var saldos = {};
-  SUCURSALES.forEach(function(s){ saldos[s] = 0; });
-
-  if (snapTotal && snapTotal.exists()) {
-    snapTotal.forEach(function(daySnap) {
-      daySnap.forEach(function(sucSnap) {
-        var suc = sucSnap.key;
-        if (!saldos.hasOwnProperty(suc)) return;
-        sucSnap.forEach(function(regSnap) {
-          var r = regSnap.val();
-          if (r.esEspejoInter) return;
-          if (r.tipo === "ventas") {
-            saldos[suc] += (r.ventas && r.ventas["efectivo"]) ? r.ventas["efectivo"] : 0;
-          } else if (r.tipo === "movimientos") {
-            (r.ingresosInter || []).forEach(function(i){ saldos[suc] += i.monto || 0; });
-            saldos[suc] -= r.totalEgresos || 0;
-          } else if (!r.tipo) {
-            saldos[suc] += (r.ingresos && r.ingresos["efectivo"]) ? r.ingresos["efectivo"] : 0;
-            saldos[suc] -= r.totalEgresos || 0;
-          }
-        });
-      });
-    });
-  }
-
-  // Máximo absoluto para la barra proporcional
-  var maxAbs = Math.max(1, Math.max.apply(null, SUCURSALES.map(function(s){ return Math.abs(saldos[s]); })));
-
-  tbody.innerHTML = "";
-  SUCURSALES.forEach(function(suc) {
-    var saldo = saldos[suc];
-    var pct   = Math.round(Math.abs(saldo) / maxAbs * 100);
-    var color = COLORS[suc];
-    var esPos = saldo >= 0;
-    var tr = document.createElement("tr");
-    tr.innerHTML =
-      '<td><span class="ef-suc" style="color:' + color + '">' + suc + '</span></td>' +
-      '<td><span class="ef-estado">' + (esPos ? "✓ positivo" : "⚠ negativo") + '</span></td>' +
-      '<td class="ef-bar-cell"><div class="ef-bar-wrap"><div class="ef-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div></td>' +
-      '<td><span class="ef-val ' + (esPos ? "positivo" : "negativo") + '">' + (esPos ? "+" : "−") + fmtM(Math.abs(saldo)) + '</span></td>';
-    tbody.appendChild(tr);
-  });
+// ===================== CIERRE DE CAJA + TOTAL EFECTIVO =====================
+function renderEfectivoTabla() {
+  // Ya no hay tabla de efectivo — la info está en renderCierreStrip
 }
 
-
 function renderCierreStrip() {
-  var cont = document.getElementById("cierre-strip-home");
+  var cont     = document.getElementById("cierre-strip-home");
+  var totalVal = document.getElementById("cierre-total-val");
   if (!cont) return;
   cont.innerHTML = '<div class="empty-st" style="padding:12px 0;font-size:.78rem">Cargando cierres...</div>';
 
   firebase.database().ref("cierres/" + today()).once("value", function(snap) {
     cont.innerHTML = "";
+    var totalContado = 0;
+    var algoCerrado  = false;
+
     SUCURSALES.forEach(function(suc) {
       var card = document.createElement("div");
       card.className = "cierre-dash-card";
-      card.setAttribute("data-suc", suc);
       var c = COLORS[suc];
 
       if (snap.exists() && snap.child(suc).exists()) {
         var d        = snap.child(suc).val();
         var difSign  = d.diferencia >= 0 ? "+" : "−";
         var difColor = d.diferencia >= 0 ? "var(--green)" : "var(--red)";
-        var hora     = new Date(d.timestamp).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+        var hora     = new Date(d.timestamp).toLocaleTimeString("es-AR", { hour:"2-digit", minute:"2-digit" });
+        totalContado += d.contado || 0;
+        algoCerrado   = true;
         card.classList.add("cierre-ok");
         card.innerHTML =
           '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
           '<div class="cs-estado cs-cerrado">✓ Cerrado ' + hora + '</div>' +
-          '<div class="cs-row"><span class="cs-lbl">Contado</span><span class="cs-val">' + fmtM(d.contado) + '</span></div>' +
+          '<div class="cs-row"><span class="cs-lbl">Contado</span><span class="cs-val cs-contado-verde">' + fmtM(d.contado) + '</span></div>' +
           '<div class="cs-row"><span class="cs-lbl">Sistema</span><span class="cs-val">' + fmtM(d.saldoSistema) + '</span></div>' +
           '<div class="cs-row"><span class="cs-lbl">Diferencia</span><span class="cs-val" style="color:' + difColor + '">' + difSign + fmtM(Math.abs(d.diferencia)) + '</span></div>' +
           (d.nota ? '<div class="cs-nota">' + d.nota + '</div>' : '');
@@ -1247,6 +1206,17 @@ function renderCierreStrip() {
       }
       cont.appendChild(card);
     });
+
+    // Banner total
+    if (totalVal) {
+      if (algoCerrado) {
+        totalVal.textContent  = fmtFull(totalContado);
+        totalVal.style.color  = "var(--green)";
+      } else {
+        totalVal.textContent = "Sin cierres aún";
+        totalVal.style.color = "var(--muted)";
+      }
+    }
   });
 }
 
