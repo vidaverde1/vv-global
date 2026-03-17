@@ -60,6 +60,14 @@ function fmt(n) {
   if (!n && n !== 0) return "$0";
   return "$" + Number(n).toLocaleString("es-AR");
 }
+
+function fmtObj(n) {
+  if (!n && n !== 0) return "$0";
+  if (Math.abs(n) >= 1000000) return "$" + (n / 1000000).toFixed(2) + "M";
+  if (Math.abs(n) >= 1000)    return "$" + (n / 1000).toFixed(0) + "K";
+  return "$" + Number(n).toLocaleString("es-AR");
+}
+
 function today() { return new Date().toISOString().slice(0, 10); }
 
 function showToast(msg, tipo) {
@@ -665,6 +673,80 @@ function actualizarSaldoBanner(saldo) {
   banner.className    = "saldo-banner " + (saldo >= 0 ? "saldo-ok" : "saldo-neg");
 }
 
+// ===================== OBJETIVO DEL MES =====================
+function renderObjetivoSucursal(snapTotal) {
+  var card = document.getElementById("obj-suc-card");
+  if (!card || !sucursalActual) return;
+
+  // Leer objetivos del mismo localStorage que el dashboard
+  var OBJETIVOS_DEFAULT = {
+    NAZCA: 36000000, OLAZABAL: 29000000, CUENCA: 30000000,
+    BEIRO: 23000000, GOYENA: 26000000
+  };
+  var objetivos = {};
+  try {
+    var saved = localStorage.getItem("vvglobal_objetivos");
+    if (saved) objetivos = JSON.parse(saved);
+  } catch(e) {}
+  var meta = objetivos[sucursalActual] || OBJETIVOS_DEFAULT[sucursalActual] || 0;
+
+  // Acumulado de ventas del mes actual para esta sucursal
+  var mesActual = new Date().toISOString().slice(0, 7);
+  var acum = 0;
+  if (snapTotal && snapTotal.exists()) {
+    snapTotal.forEach(function(daySnap) {
+      if (daySnap.key.slice(0, 7) !== mesActual) return;
+      var sucSnap = daySnap.child(sucursalActual);
+      if (!sucSnap.exists()) return;
+      sucSnap.forEach(function(regSnap) {
+        var r = regSnap.val();
+        if (r.tipo === "ventas") acum += r.totalVentas  || 0;
+        if (!r.tipo)             acum += r.totalIngresos || 0;
+      });
+    });
+  }
+
+  var pct      = meta > 0 ? Math.min((acum / meta) * 100, 100) : 0;
+  var pctReal  = meta > 0 ? ((acum / meta) * 100).toFixed(1) : "0.0";
+  var falta    = Math.max(meta - acum, 0);
+  var barColor = pct >= 80 ? "var(--green-dk, #009c40)"
+               : pct >= 50 ? "var(--amber, #f59e0b)"
+               : "var(--red, #e53935)";
+
+  // Días hábiles lunes-sábado
+  var hoy    = new Date();
+  var ultimo = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+  var transcurridos = 0, restantes = 0;
+  for (var d = 1; d <= ultimo; d++) {
+    if (new Date(hoy.getFullYear(), hoy.getMonth(), d).getDay() === 0) continue;
+    if (d <= hoy.getDate()) transcurridos++;
+    else restantes++;
+  }
+  var promReq  = restantes > 0 && falta > 0 ? falta / restantes : 0;
+  var promReal = transcurridos > 0 ? acum / transcurridos : 0;
+
+  document.getElementById("obj-suc-pct").textContent           = pctReal + "%";
+  document.getElementById("obj-suc-pct").style.color           = barColor;
+  document.getElementById("obj-suc-bar-fill").style.width      = pct + "%";
+  document.getElementById("obj-suc-bar-fill").style.background = barColor;
+  document.getElementById("obj-suc-acum").textContent          = fmtObj(acum);
+  document.getElementById("obj-suc-meta").textContent          = "Obj: " + fmtObj(meta);
+
+  var promEl = document.getElementById("obj-suc-prom");
+  if (acum >= meta && meta > 0) {
+    promEl.innerHTML = '<span style="color:var(--green-dk,#009c40);font-weight:700">✓ Objetivo alcanzado</span>';
+  } else if (restantes === 0) {
+    promEl.innerHTML = '<span style="color:var(--red,#e53935)">Sin días hábiles restantes</span>';
+  } else {
+    var promColor = promReq <= promReal
+      ? "var(--green-dk,#009c40)"
+      : promReq <= promReal * 1.3 ? "var(--amber,#f59e0b)" : "var(--red,#e53935)";
+    promEl.innerHTML =
+      '<span>Req: <strong style="color:' + promColor + '">' + fmtObj(Math.ceil(promReq)) + '/día</strong></span>' +
+      '<span>' + restantes + ' días · Real: ' + fmtObj(Math.round(promReal)) + '/día</span>';
+  }
+}
+
 // ===================== RESUMEN DEL DÍA =====================
 function renderResumen() {
   var lista = document.getElementById("resumen-lista");
@@ -768,13 +850,14 @@ function conectarFirebase(sucursal) {
       document.getElementById("resumen-lista").innerHTML = '<div class="empty-state">Sin conexión a Firebase.</div>';
     });
 
-    // Listener saldo histórico completo
+    // Listener saldo histórico completo + objetivo
     saldoRef = firebase.database().ref("registros");
     saldoRef.on("value", function(snapTotal) {
       saldoSistema = calcularSaldoDesdeSnap(snapTotal);
       actualizarSaldoBanner(saldoSistema);
       var sistemaEl = document.getElementById("cierre-saldo-sistema");
       if (sistemaEl) sistemaEl.textContent = fmt(saldoSistema);
+      renderObjetivoSucursal(snapTotal);
     });
 
     // Listener cierre de hoy

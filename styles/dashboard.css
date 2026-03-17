@@ -1803,3 +1803,52 @@ body {
   color: var(--text);
 }
 .semanal-row-actual .semanal-td-tot { color: var(--green); }
+
+/* ===================== OBJETIVOS — RESPONSIVE MÓVIL ===================== */
+@media (max-width: 600px) {
+
+  /* Card global */
+  .obj-global-card {
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .obj-global-pct   { font-size: 1.5rem; }
+  .obj-global-acum  { font-size: 1rem; }
+  .obj-global-meta  { font-size: .72rem; }
+  .obj-global-sub   { font-size: .68rem; line-height: 1.4; }
+
+  /* Cards individuales */
+  .obj-card   { padding: 10px 12px; margin-bottom: 6px; }
+  .obj-top    { margin-bottom: 6px; }
+  .obj-pct    { font-size: 1.1rem; }
+  .obj-suc-name { font-size: .68rem; }
+  .obj-bar-bg { height: 4px; margin-bottom: 8px; }
+
+  /* Acumulado y objetivo en la misma fila */
+  .obj-nums {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+  .obj-acum { font-size: .88rem; font-weight: 700; }
+  .obj-meta { font-size: .72rem; color: var(--muted); }
+
+  /* Promedio requerido */
+  .obj-prom-row  { margin-top: 6px; padding: 5px 8px; flex-wrap: nowrap; }
+  .obj-prom-label { font-size: .65rem; }
+  .obj-prom-val  { font-size: .78rem; }
+  .obj-prom-sub  { display: flex; font-size: .65rem; }
+
+  /* Modal edición */
+  .obj-input-wrap input { width: 100px; font-size: .82rem; }
+  .obj-field-row label  { font-size: .8rem; }
+}
+
+@media (min-width: 601px) and (max-width: 900px) {
+  #obj-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .obj-global-card { grid-column: 1 / -1; }
+  .obj-global-pct  { font-size: 1.6rem; }
+}

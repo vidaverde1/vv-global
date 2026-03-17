@@ -616,14 +616,13 @@ function renderObjetivos() {
     } else {
       var promColor = promReq <= promReal ? "var(--green)" : promReq <= promReal * 1.3 ? "#f0a500" : "var(--red)";
       promHtml =
-        '<div class="obj-prom-row">' +
-          '<span class="obj-prom-label">Promedio requerido / día hábil</span>' +
-          '<span class="obj-prom-val" style="color:' + promColor + '">' + fmtFull(Math.ceil(promReq)) + '</span>' +
-        '</div>' +
-        '<div class="obj-prom-sub">' +
-          '<span>' + habil.restantes + ' días hábiles restantes</span>' +
-          '<span>Prom. real: ' + fmtM(Math.round(promReal)) + '/día</span>' +
-        '</div>';
+  '<div class="obj-prom-row">' +
+    '<span class="obj-prom-label">Prom. requerido</span>' +
+    '<span class="obj-prom-val" style="color:' + promColor + '">' + fmtFull(Math.ceil(promReq)) + '/día</span>' +
+  '</div>' +
+  '<div class="obj-prom-sub">' +
+    '<span>Prom. real: ' + fmtM(Math.round(promReal)) + '/día</span>' +
+  '</div>';
     }
 
     card.innerHTML =
