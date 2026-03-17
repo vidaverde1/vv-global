@@ -28,12 +28,7 @@ var MOTIVOS_MERMA = {
 
 var STORAGE_KEY      = "vvglobal_sucursal";
 var AUTH_SUC_KEY     = "vvglobal_suc_auth";
-var AUTH_SUC_DURACION = 8 * 60 * 60 * 1000;
-
-var OBJETIVOS_DEFAULT = {
-  NAZCA: 36000000, OLAZABAL: 29000000, CUENCA: 30000000,
-  BEIRO: 23000000, GOYENA: 26000000
-};
+var AUTH_SUC_DURACION = 8 * 60 * 60 * 1000; // 8 horas
 
 // ===================== ESTADO =====================
 var sucursalActual  = localStorage.getItem(STORAGE_KEY) || null;
@@ -65,14 +60,6 @@ function fmt(n) {
   if (!n && n !== 0) return "$0";
   return "$" + Number(n).toLocaleString("es-AR");
 }
-
-function fmtNum(n) {
-  if (!n && n !== 0) return "$0";
-  if (Math.abs(n) >= 1000000) return "$" + (n / 1000000).toFixed(2) + "M";
-  if (Math.abs(n) >= 1000)    return "$" + (n / 1000).toFixed(0) + "K";
-  return "$" + Number(n).toLocaleString("es-AR");
-}
-
 function today() { return new Date().toISOString().slice(0, 10); }
 
 function showToast(msg, tipo) {
@@ -84,6 +71,7 @@ function showToast(msg, tipo) {
 
 function setBtn(id, disabled, label) {
   var b = document.getElementById(id);
+  if (!b) return;
   b.disabled    = disabled;
   b.textContent = label;
 }
@@ -108,6 +96,7 @@ function elegirSucursal(nombre) {
     mostrarCarga(nombre);
     return;
   }
+
   firebase.database().ref("config/claves/" + nombre).once("value")
     .then(function(snap) {
       if (!snap.exists()) {
@@ -132,15 +121,19 @@ function mostrarPantallaClave(nombre, claveCorrecta) {
   document.getElementById("clave-suc-nombre").textContent = nombre;
   document.getElementById("clave-error").classList.add("hidden");
 
+  // Clonar input Y botones para eliminar todos los listeners acumulados
   var inputViejo     = document.getElementById("clave-input");
   var btnOk          = document.getElementById("btn-clave-ok");
   var btnVolver      = document.getElementById("btn-clave-volver");
+
   var inputNuevo     = inputViejo.cloneNode(true);
   var btnOkNuevo     = btnOk.cloneNode(true);
   var btnVolverNuevo = btnVolver.cloneNode(true);
+
   inputViejo.parentNode.replaceChild(inputNuevo, inputViejo);
   btnOk.parentNode.replaceChild(btnOkNuevo, btnOk);
   btnVolver.parentNode.replaceChild(btnVolverNuevo, btnVolver);
+
   inputNuevo.value = "";
 
   function verificar() {
@@ -160,11 +153,14 @@ function mostrarPantallaClave(nombre, claveCorrecta) {
   }
 
   btnOkNuevo.addEventListener("click", verificar);
-  inputNuevo.addEventListener("keyup", function(e) { if (e.key === "Enter") verificar(); });
+  inputNuevo.addEventListener("keyup", function(e) {
+    if (e.key === "Enter") verificar();
+  });
   btnVolverNuevo.addEventListener("click", function() {
     document.getElementById("pantalla-clave").classList.add("hidden");
     document.getElementById("pantalla-seleccion").classList.remove("hidden");
   });
+
   setTimeout(function() { inputNuevo.focus(); }, 100);
 }
 
@@ -172,10 +168,11 @@ function mostrarCarga(nombre) {
   document.getElementById("pantalla-seleccion").classList.add("hidden");
   document.getElementById("pantalla-clave").classList.add("hidden");
   document.getElementById("pantalla-carga").classList.remove("hidden");
-  document.getElementById("suc-badge").textContent  = nombre;
-  document.getElementById("fecha-hoy").textContent  =
+  document.getElementById("suc-badge").textContent = nombre;
+  document.getElementById("fecha-hoy").textContent =
     new Date().toLocaleDateString("es-AR", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
 
+  // Poblar select de sucursal origen en movimientos
   var sel = document.getElementById("inter-origen");
   sel.innerHTML = '<option value="">— Seleccioná —</option>';
   SUCURSALES.filter(function(s) { return s !== nombre; }).forEach(function(s) {
@@ -184,8 +181,45 @@ function mostrarCarga(nombre) {
     sel.appendChild(opt);
   });
 
+  // Limpiar todos los campos antes de conectar
+  limpiarTodo();
   buildVentasForm();
   conectarFirebase(nombre);
+}
+
+function limpiarTodo() {
+  // Ventas (los inputs se recrean en buildVentasForm, limpiar los existentes)
+  RUBROS_VENTAS.forEach(function(r) {
+    var el = document.getElementById("v-" + r.id);
+    if (el) el.value = "";
+  });
+  var notaV = document.getElementById("nota-ventas");
+  if (notaV) notaV.value = "";
+
+  // Movimientos
+  movimientosTemp = [];
+  renderMovLista();
+  document.getElementById("eg-categoria").value = "";
+  document.getElementById("inter-origen").value  = "";
+  document.getElementById("mov-monto").value     = "";
+  document.getElementById("mov-detalle").value   = "";
+
+  // Merma
+  mermaTemp = [];
+  renderMermaLista();
+  document.getElementById("merma-producto").value = "";
+  document.getElementById("merma-cantidad").value = "";
+  document.getElementById("merma-precio").value   = "";
+  document.getElementById("merma-detalle").value  = "";
+  document.getElementById("merma-total-val").textContent = "$0";
+
+  // Cierre
+  var contado = document.getElementById("cierre-contado");
+  if (contado) contado.value = "";
+  var notaC = document.getElementById("cierre-nota");
+  if (notaC) notaC.value = "";
+  var difVal = document.getElementById("cierre-diferencia-val");
+  if (difVal) difVal.textContent = "—";
 }
 
 function cambiarSucursal() {
@@ -243,15 +277,24 @@ function guardarVentas() {
     if (v > 0) ventas[r.id] = v;
   });
   var total = Object.values(ventas).reduce(function(a,b){ return a+b; }, 0);
+
   if (!total) { showToast("Ingresá al menos un monto de venta.", "error"); return; }
 
   setBtn("btn-guardar-ventas", true, "Guardando...");
+
   var registro = {
-    tipo: "ventas", sucursal: sucursalActual, fecha: today(), timestamp: Date.now(),
-    ventas: ventas, totalVentas: total,
-    nota: document.getElementById("nota-ventas").value.trim()
+    tipo:        "ventas",
+    sucursal:    sucursalActual,
+    fecha:       today(),
+    timestamp:   Date.now(),
+    ventas:      ventas,
+    totalVentas: total,
+    nota:        document.getElementById("nota-ventas").value.trim()
   };
-  firebase.database().ref("registros/" + today() + "/" + sucursalActual).push(registro)
+
+  firebase.database()
+    .ref("registros/" + today() + "/" + sucursalActual)
+    .push(registro)
     .then(function() {
       showToast("¡Ventas guardadas!", "ok");
       RUBROS_VENTAS.forEach(function(r) { document.getElementById("v-" + r.id).value = ""; });
@@ -268,26 +311,30 @@ function initMovimientos() {
       document.querySelectorAll(".mov-tipo-btn").forEach(function(b) { b.classList.remove("active"); });
       btn.classList.add("active");
       tipoMovActual = btn.getAttribute("data-tipo");
+
       if (tipoMovActual === "egreso") {
         document.getElementById("mov-campos-egreso").classList.remove("hidden");
         document.getElementById("mov-campos-inter").classList.add("hidden");
-        btn.style.background  = "var(--red-bg)";
-        btn.style.borderColor = "var(--red)";
-        btn.style.color       = "var(--red)";
+        btn.style.background   = "var(--red-bg)";
+        btn.style.borderColor  = "var(--red)";
+        btn.style.color        = "var(--red)";
       } else {
         document.getElementById("mov-campos-egreso").classList.add("hidden");
         document.getElementById("mov-campos-inter").classList.remove("hidden");
-        btn.style.background  = "var(--blue-bg)";
-        btn.style.borderColor = "var(--blue)";
-        btn.style.color       = "var(--blue)";
+        btn.style.background   = "var(--blue-bg)";
+        btn.style.borderColor  = "var(--blue)";
+        btn.style.color        = "var(--blue)";
       }
       document.querySelectorAll(".mov-tipo-btn").forEach(function(b) {
         if (!b.classList.contains("active")) {
-          b.style.background = ""; b.style.borderColor = ""; b.style.color = "";
+          b.style.background  = "";
+          b.style.borderColor = "";
+          b.style.color       = "";
         }
       });
     });
   });
+
   document.getElementById("btn-add-mov").addEventListener("click", addMovimiento);
   document.getElementById("mov-detalle").addEventListener("keydown", function(e) {
     if (e.key === "Enter") addMovimiento();
@@ -297,7 +344,9 @@ function initMovimientos() {
 function addMovimiento() {
   var monto   = parseFloat(document.getElementById("mov-monto").value) || 0;
   var detalle = document.getElementById("mov-detalle").value.trim();
+
   if (!monto || monto <= 0) { showToast("Ingresá un monto mayor a cero.", "error"); return; }
+
   if (tipoMovActual === "egreso") {
     var cat = document.getElementById("eg-categoria").value;
     if (!cat) { showToast("Seleccioná una categoría.", "error"); return; }
@@ -307,21 +356,28 @@ function addMovimiento() {
     if (!origen) { showToast("Seleccioná la sucursal de origen.", "error"); return; }
     movimientosTemp.push({ tipo: "ingreso-inter", origen: origen, monto: monto, detalle: detalle });
   }
+
   document.getElementById("eg-categoria").value = "";
   document.getElementById("inter-origen").value  = "";
   document.getElementById("mov-monto").value     = "";
   document.getElementById("mov-detalle").value   = "";
+
   renderMovLista();
 }
 
-function removeMovimiento(idx) { movimientosTemp.splice(idx, 1); renderMovLista(); }
+function removeMovimiento(idx) {
+  movimientosTemp.splice(idx, 1);
+  renderMovLista();
+}
 
 function renderMovLista() {
   var lista = document.getElementById("mov-lista");
   var empty = document.getElementById("mov-empty");
   lista.querySelectorAll(".item-chip").forEach(function(el) { el.remove(); });
+
   if (!movimientosTemp.length) { empty.style.display = "block"; return; }
   empty.style.display = "none";
+
   movimientosTemp.forEach(function(m, idx) {
     var chip    = document.createElement("div");
     var isInter = m.tipo === "ingreso-inter";
@@ -334,22 +390,30 @@ function renderMovLista() {
       '<button class="chip-del" data-idx="' + idx + '">✕</button>';
     lista.appendChild(chip);
   });
+
   lista.querySelectorAll(".chip-del").forEach(function(btn) {
-    btn.addEventListener("click", function() { removeMovimiento(parseInt(btn.getAttribute("data-idx"))); });
+    btn.addEventListener("click", function() {
+      removeMovimiento(parseInt(btn.getAttribute("data-idx")));
+    });
   });
 }
 
 function guardarMovimientos() {
   if (!movimientosTemp.length) { showToast("No hay movimientos en la lista.", "error"); return; }
+
   setBtn("btn-guardar-mov", true, "Guardando...");
 
-  var egresos = {}, egresosDetalle = [], ingresosInter = [];
-  var totalEgresos = 0, totalIngInter = 0, promesas = [];
+  var egresos        = {};
+  var egresosDetalle = [];
+  var ingresosInter  = [];
+  var totalEgresos   = 0;
+  var totalIngInter  = 0;
+  var promesas       = [];
 
   movimientosTemp.forEach(function(m) {
     if (m.tipo === "egreso") {
-      egresos[m.cat] = (egresos[m.cat] || 0) + m.monto;
-      totalEgresos  += m.monto;
+      egresos[m.cat]  = (egresos[m.cat] || 0) + m.monto;
+      totalEgresos   += m.monto;
       egresosDetalle.push({ cat: m.cat, monto: m.monto, detalle: m.detalle });
     } else {
       ingresosInter.push({ origen: m.origen, monto: m.monto, detalle: m.detalle });
@@ -358,24 +422,45 @@ function guardarMovimientos() {
   });
 
   var registro = {
-    tipo: "movimientos", sucursal: sucursalActual, fecha: today(), timestamp: Date.now(),
-    egresos: egresos, egresosDetalle: egresosDetalle,
-    ingresosInter: ingresosInter, totalEgresos: totalEgresos, totalIngInter: totalIngInter
+    tipo:           "movimientos",
+    sucursal:       sucursalActual,
+    fecha:          today(),
+    timestamp:      Date.now(),
+    egresos:        egresos,
+    egresosDetalle: egresosDetalle,
+    ingresosInter:  ingresosInter,
+    totalEgresos:   totalEgresos,
+    totalIngInter:  totalIngInter
   };
-  promesas.push(firebase.database().ref("registros/" + today() + "/" + sucursalActual).push(registro));
+
+  promesas.push(
+    firebase.database()
+      .ref("registros/" + today() + "/" + sucursalActual)
+      .push(registro)
+  );
 
   ingresosInter.forEach(function(inter) {
     var espejo = {
-      tipo: "movimientos", sucursal: inter.origen, fecha: today(), timestamp: Date.now(),
-      egresos: { "transferencia-inter": inter.monto },
+      tipo:           "movimientos",
+      sucursal:       inter.origen,
+      fecha:          today(),
+      timestamp:      Date.now(),
+      egresos:        { "transferencia-inter": inter.monto },
       egresosDetalle: [{ cat: "transferencia-inter", monto: inter.monto, detalle: "Transferido a " + sucursalActual + (inter.detalle ? " · " + inter.detalle : "") }],
-      ingresosInter: [], totalEgresos: inter.monto, totalIngInter: 0, esEspejoInter: true
+      ingresosInter:  [],
+      totalEgresos:   inter.monto,
+      totalIngInter:  0,
+      esEspejoInter:  true
     };
     promesas.push(firebase.database().ref("registros/" + today() + "/" + inter.origen).push(espejo));
   });
 
   Promise.all(promesas)
-    .then(function() { showToast("¡Movimientos guardados!", "ok"); movimientosTemp = []; renderMovLista(); })
+    .then(function() {
+      showToast("¡Movimientos guardados!", "ok");
+      movimientosTemp = [];
+      renderMovLista();
+    })
     .catch(function(e) { showToast("Error al guardar.", "error"); console.error(e); })
     .finally(function() { setBtn("btn-guardar-mov", false, "Guardar Movimientos"); });
 }
@@ -401,26 +486,35 @@ function addMerma() {
   var precio   = parseFloat(document.getElementById("merma-precio").value)   || 0;
   var motivo   = document.getElementById("merma-motivo").value;
   var detalle  = document.getElementById("merma-detalle").value.trim();
+
   if (!producto)                  { showToast("Ingresá el nombre del producto.", "error"); return; }
   if (!cantidad || cantidad <= 0) { showToast("Ingresá una cantidad válida.", "error");    return; }
   if (!precio   || precio   <= 0) { showToast("Ingresá el precio unitario.", "error");     return; }
+
   mermaTemp.push({ producto: producto, cantidad: cantidad, precio: precio, total: cantidad * precio, motivo: motivo, detalle: detalle });
+
   document.getElementById("merma-producto").value = "";
   document.getElementById("merma-cantidad").value = "";
   document.getElementById("merma-precio").value   = "";
   document.getElementById("merma-detalle").value  = "";
   document.getElementById("merma-total-val").textContent = "$0";
+
   renderMermaLista();
 }
 
-function removeMerma(idx) { mermaTemp.splice(idx, 1); renderMermaLista(); }
+function removeMerma(idx) {
+  mermaTemp.splice(idx, 1);
+  renderMermaLista();
+}
 
 function renderMermaLista() {
   var lista = document.getElementById("merma-lista");
   var empty = document.getElementById("merma-empty");
   lista.querySelectorAll(".item-chip").forEach(function(el) { el.remove(); });
+
   if (!mermaTemp.length) { empty.style.display = "block"; return; }
   empty.style.display = "none";
+
   mermaTemp.forEach(function(m, idx) {
     var chip = document.createElement("div");
     chip.className = "item-chip merma";
@@ -431,18 +525,36 @@ function renderMermaLista() {
       '<button class="chip-del" data-idx="' + idx + '">✕</button>';
     lista.appendChild(chip);
   });
+
   lista.querySelectorAll(".chip-del").forEach(function(btn) {
-    btn.addEventListener("click", function() { removeMerma(parseInt(btn.getAttribute("data-idx"))); });
+    btn.addEventListener("click", function() {
+      removeMerma(parseInt(btn.getAttribute("data-idx")));
+    });
   });
 }
 
 function guardarMerma() {
   if (!mermaTemp.length) { showToast("No hay ítems de merma en la lista.", "error"); return; }
+
   setBtn("btn-guardar-merma", true, "Guardando...");
+
   var totalMerma = mermaTemp.reduce(function(a, m) { return a + m.total; }, 0);
-  firebase.database().ref("registros/" + today() + "/" + sucursalActual)
-    .push({ tipo: "merma", sucursal: sucursalActual, fecha: today(), timestamp: Date.now(), items: mermaTemp.slice(), totalMerma: totalMerma })
-    .then(function() { showToast("¡Merma registrada!", "warn"); mermaTemp = []; renderMermaLista(); })
+
+  firebase.database()
+    .ref("registros/" + today() + "/" + sucursalActual)
+    .push({
+      tipo:       "merma",
+      sucursal:   sucursalActual,
+      fecha:      today(),
+      timestamp:  Date.now(),
+      items:      mermaTemp.slice(),
+      totalMerma: totalMerma
+    })
+    .then(function() {
+      showToast("¡Merma registrada!", "warn");
+      mermaTemp = [];
+      renderMermaLista();
+    })
     .catch(function(e) { showToast("Error al guardar.", "error"); console.error(e); })
     .finally(function() { setBtn("btn-guardar-merma", false, "Guardar Merma"); });
 }
@@ -454,51 +566,72 @@ function initCierre() {
     var dif     = contado - saldoSistema;
     var el      = document.getElementById("cierre-diferencia-val");
     el.textContent = (dif >= 0 ? "+" : "") + fmt(dif);
-    el.style.color = dif >= 0 ? "var(--green)" : "var(--red)";
+    el.style.color = dif >= 0 ? "var(--green, #1a7a4a)" : "var(--red, #c0392b)";
   });
+
   document.getElementById("btn-guardar-cierre").addEventListener("click", guardarCierre);
 }
 
 function guardarCierre() {
   var contadoEl = document.getElementById("cierre-contado");
-  if (!contadoEl.value || contadoEl.value === "") { showToast("Ingresá el monto contado.", "error"); return; }
+  if (!contadoEl.value || contadoEl.value === "") {
+    showToast("Ingresá el monto contado.", "error");
+    return;
+  }
   var contado    = parseFloat(contadoEl.value);
   var diferencia = contado - saldoSistema;
   var nota       = document.getElementById("cierre-nota").value.trim();
+
   setBtn("btn-guardar-cierre", true, "Guardando...");
-  firebase.database().ref("cierres/" + today() + "/" + sucursalActual).set({
-    sucursal: sucursalActual, fecha: today(), timestamp: Date.now(),
-    contado: contado, saldoSistema: saldoSistema, diferencia: diferencia, nota: nota
-  })
-  .then(function() {
-    showToast("¡Cierre guardado!", "ok");
-    contadoEl.value = "";
-    document.getElementById("cierre-nota").value = "";
-  })
-  .catch(function(e) { showToast("Error al guardar el cierre.", "error"); console.error(e); })
-  .finally(function() { setBtn("btn-guardar-cierre", false, "🔒 Cerrar Caja"); });
+
+  firebase.database()
+    .ref("cierres/" + today() + "/" + sucursalActual)
+    .set({
+      sucursal:     sucursalActual,
+      fecha:        today(),
+      timestamp:    Date.now(),
+      contado:      contado,
+      saldoSistema: saldoSistema,
+      diferencia:   diferencia,
+      nota:         nota
+    })
+    .then(function() {
+      showToast("¡Cierre guardado!", "ok");
+      contadoEl.value = "";
+      document.getElementById("cierre-nota").value = "";
+    })
+    .catch(function(e) { showToast("Error al guardar el cierre.", "error"); console.error(e); })
+    .finally(function() { setBtn("btn-guardar-cierre", false, "🔒 Cerrar Caja"); });
 }
 
 function renderCierre(cierreSnap) {
   var yaHecho  = document.getElementById("cierre-ya-hecho");
   var formEl   = document.getElementById("cierre-form");
   var doneData = document.getElementById("cierre-done-data");
+
   if (cierreSnap && cierreSnap.exists()) {
     var d = cierreSnap.val();
     yaHecho.classList.remove("hidden");
     formEl.classList.add("hidden");
     var difSign = d.diferencia >= 0 ? "+" : "";
-    var difColor = d.diferencia >= 0 ? "var(--green)" : "var(--red)";
     doneData.innerHTML =
       '<div>Contado: <strong>' + fmt(d.contado) + '</strong></div>' +
       '<div>Sistema: <strong>' + fmt(d.saldoSistema) + '</strong></div>' +
-      '<div>Diferencia: <strong style="color:' + difColor + '">' + difSign + fmt(d.diferencia) + '</strong></div>' +
+      '<div>Diferencia: <strong style="color:' + (d.diferencia >= 0 ? 'var(--green,#1a7a4a)' : 'var(--red,#c0392b)') + '">' + difSign + fmt(d.diferencia) + '</strong></div>' +
       (d.nota ? '<div style="margin-top:6px;font-style:italic;opacity:.7">' + d.nota + '</div>' : '');
   } else {
     yaHecho.classList.add("hidden");
     formEl.classList.remove("hidden");
-    var sistemaEl = document.getElementById("cierre-saldo-sistema");
-    if (sistemaEl) sistemaEl.textContent = fmt(saldoSistema);
+    document.getElementById("cierre-saldo-sistema").textContent = fmt(saldoSistema);
+    // Recalcular diferencia si ya hay algo escrito
+    var contadoEl = document.getElementById("cierre-contado");
+    if (contadoEl.value !== "") {
+      var contado = parseFloat(contadoEl.value) || 0;
+      var dif     = contado - saldoSistema;
+      var difEl   = document.getElementById("cierre-diferencia-val");
+      difEl.textContent = (dif >= 0 ? "+" : "") + fmt(dif);
+      difEl.style.color = dif >= 0 ? "var(--green,#1a7a4a)" : "var(--red,#c0392b)";
+    }
   }
 }
 
@@ -514,7 +647,7 @@ function calcularSaldoDesdeSnap(snapTotal) {
         if (r.tipo === "ventas") {
           saldo += r.ventas && r.ventas.efectivo ? r.ventas.efectivo : 0;
         } else if (r.tipo === "movimientos") {
-          (r.ingresosInter || []).forEach(function(i) { saldo += i.monto || 0; });
+          (r.ingresosInter || []).forEach(function(inter) { saldo += inter.monto || 0; });
           saldo -= r.totalEgresos || 0;
         }
       });
@@ -527,76 +660,9 @@ function actualizarSaldoBanner(saldo) {
   var banner  = document.getElementById("saldo-efectivo");
   var valEl   = document.getElementById("saldo-efectivo-val");
   var signoEl = document.getElementById("saldo-signo");
-  if (!banner) return;
   valEl.textContent   = fmt(Math.abs(saldo));
   signoEl.textContent = saldo >= 0 ? "+" : "−";
   banner.className    = "saldo-banner " + (saldo >= 0 ? "saldo-ok" : "saldo-neg");
-}
-
-// ===================== OBJETIVO DEL MES =====================
-function renderObjetivoSucursal(snapTotal) {
-  var card = document.getElementById("obj-suc-card");
-  if (!card || !sucursalActual) return;
-
-  // Leer objetivos del mismo localStorage que el dashboard
-  var objetivos = {};
-  try {
-    var saved = localStorage.getItem("vvglobal_objetivos");
-    if (saved) objetivos = JSON.parse(saved);
-  } catch(e) {}
-  var meta = objetivos[sucursalActual] || OBJETIVOS_DEFAULT[sucursalActual] || 0;
-
-  // Acumulado de ventas del mes actual para esta sucursal
-  var mesActual = new Date().toISOString().slice(0, 7);
-  var acum = 0;
-  if (snapTotal && snapTotal.exists()) {
-    snapTotal.forEach(function(daySnap) {
-      if (daySnap.key.slice(0, 7) !== mesActual) return;
-      var sucSnap = daySnap.child(sucursalActual);
-      if (!sucSnap.exists()) return;
-      sucSnap.forEach(function(regSnap) {
-        var r = regSnap.val();
-        if (r.tipo === "ventas") acum += r.totalVentas  || 0;
-        if (!r.tipo)             acum += r.totalIngresos || 0;
-      });
-    });
-  }
-
-  var pct      = meta > 0 ? Math.min((acum / meta) * 100, 100) : 0;
-  var pctReal  = meta > 0 ? ((acum / meta) * 100).toFixed(1) : "0.0";
-  var falta    = Math.max(meta - acum, 0);
-  var barColor = pct >= 80 ? "var(--green-dk)" : pct >= 50 ? "var(--amber)" : "var(--red)";
-
-  // Días hábiles lunes-sábado
-  var hoy    = new Date();
-  var ultimo = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
-  var transcurridos = 0, restantes = 0;
-  for (var d = 1; d <= ultimo; d++) {
-    if (new Date(hoy.getFullYear(), hoy.getMonth(), d).getDay() === 0) continue;
-    if (d <= hoy.getDate()) transcurridos++;
-    else restantes++;
-  }
-  var promReq  = restantes > 0 && falta > 0 ? falta / restantes : 0;
-  var promReal = transcurridos > 0 ? acum / transcurridos : 0;
-
-  document.getElementById("obj-suc-pct").textContent           = pctReal + "%";
-  document.getElementById("obj-suc-pct").style.color           = barColor;
-  document.getElementById("obj-suc-bar-fill").style.width      = pct + "%";
-  document.getElementById("obj-suc-bar-fill").style.background = barColor;
-  document.getElementById("obj-suc-acum").textContent          = fmtNum(acum);
-  document.getElementById("obj-suc-meta").textContent          = "Obj: " + fmtNum(meta);
-
-  var promEl = document.getElementById("obj-suc-prom");
-  if (acum >= meta && meta > 0) {
-    promEl.innerHTML = '<span class="obj-suc-alcanzado">✓ Objetivo alcanzado</span>';
-  } else if (restantes === 0) {
-    promEl.innerHTML = '<span style="color:var(--red)">Sin días hábiles restantes</span>';
-  } else {
-    var promColor = promReq <= promReal ? "var(--green-dk)" : promReq <= promReal * 1.3 ? "var(--amber)" : "var(--red)";
-    promEl.innerHTML =
-      '<span>Req: <strong style="color:' + promColor + '">' + fmtNum(Math.ceil(promReq)) + '/día</strong></span>' +
-      '<span>' + restantes + ' días · Real: ' + fmtNum(Math.round(promReal)) + '/día</span>';
-  }
 }
 
 // ===================== RESUMEN DEL DÍA =====================
@@ -608,7 +674,9 @@ function renderResumen() {
 
   if (!registrosHoy.length) {
     lista.innerHTML = '<div class="empty-state">Aún no hay registros para hoy.</div>';
-    elIng.textContent = "$0"; elEg.textContent = "$0"; elNet.textContent = "$0";
+    elIng.textContent = "$0";
+    elEg.textContent  = "$0";
+    elNet.textContent = "$0";
     return;
   }
 
@@ -643,7 +711,7 @@ function renderResumen() {
         return '<span class="det-item inter">↑ ' + inter.origen + (inter.detalle ? " · " + inter.detalle : "") + ': ' + fmt(inter.monto) + '</span>';
       }).join("");
       var tots = "";
-      if (reg.totalEgresos)  tots += '<span class="eg-tot">-' + fmt(reg.totalEgresos) + '</span>';
+      if (reg.totalEgresos)  tots += '<span class="eg-tot">-'  + fmt(reg.totalEgresos)  + '</span>';
       if (reg.totalIngInter) tots += '<span class="ing-tot">+' + fmt(reg.totalIngInter) + ' (inter)</span>';
       card.innerHTML =
         '<div class="reg-header"><span class="reg-hora">' + hora + '</span><span class="reg-tipo-badge movimientos">Movimientos</span></div>' +
@@ -663,6 +731,7 @@ function renderResumen() {
       card.className = "reg-card";
       card.innerHTML = '<div class="reg-header"><span class="reg-hora">' + hora + '</span></div>';
     }
+
     lista.appendChild(card);
   });
 
@@ -676,12 +745,13 @@ function renderResumen() {
 
 // ===================== FIREBASE =====================
 function conectarFirebase(sucursal) {
+  // Desconectar listeners anteriores
   if (dbRef)    { dbRef.off();     dbRef     = null; }
   if (saldoRef) { saldoRef.off();  saldoRef  = null; }
   if (cierreRef){ cierreRef.off(); cierreRef = null; }
 
   try {
-    // Registros de hoy (resumen)
+    // Listener registros de hoy (resumen del día)
     dbRef = firebase.database().ref("registros/" + today() + "/" + sucursal);
     dbRef.on("value", function(snap) {
       registrosHoy = [];
@@ -698,19 +768,20 @@ function conectarFirebase(sucursal) {
       document.getElementById("resumen-lista").innerHTML = '<div class="empty-state">Sin conexión a Firebase.</div>';
     });
 
-    // Saldo histórico + objetivo
+    // Listener saldo histórico completo
     saldoRef = firebase.database().ref("registros");
     saldoRef.on("value", function(snapTotal) {
       saldoSistema = calcularSaldoDesdeSnap(snapTotal);
       actualizarSaldoBanner(saldoSistema);
       var sistemaEl = document.getElementById("cierre-saldo-sistema");
       if (sistemaEl) sistemaEl.textContent = fmt(saldoSistema);
-      renderObjetivoSucursal(snapTotal);
     });
 
-    // Cierre de hoy
+    // Listener cierre de hoy
     cierreRef = firebase.database().ref("cierres/" + today() + "/" + sucursal);
-    cierreRef.on("value", function(snap) { renderCierre(snap); });
+    cierreRef.on("value", function(snap) {
+      renderCierre(snap);
+    });
 
   } catch(e) {
     console.error(e);
