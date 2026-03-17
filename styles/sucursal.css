@@ -711,6 +711,178 @@ body {
 .toast.error { background: var(--red);      color: #fff; }
 .toast.warn  { background: var(--amber);    color: #fff; }
 
+/* ===================== COLUMNA RESUMEN ===================== */
+.resumen-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ===================== OBJETIVO DEL MES ===================== */
+.obj-suc-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.obj-suc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.obj-suc-titulo {
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.obj-suc-pct {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.obj-suc-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.obj-suc-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .6s ease;
+}
+
+.obj-suc-nums {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.obj-suc-acum {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.obj-suc-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .78rem;
+  color: var(--muted);
+}
+
+.obj-suc-prom {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: .72rem;
+  color: var(--muted2);
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.obj-suc-alcanzado {
+  color: var(--green-dk);
+  font-weight: 700;
+}
+
+/* ===================== SALDO BANNER ===================== */
+.saldo-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border: 1.5px solid;
+}
+.saldo-ok  { background: var(--green-bg); border-color: var(--green); }
+.saldo-neg { background: #e5393512;       border-color: var(--red); }
+
+.saldo-left { display: flex; align-items: center; gap: 10px; }
+.saldo-icon { font-size: 1.3rem; }
+.saldo-texts { display: flex; flex-direction: column; gap: 2px; }
+.saldo-label { font-size: .78rem; font-weight: 600; color: var(--text); }
+.saldo-sub   { font-size: .62rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+.saldo-right {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.saldo-signo { font-size: 1rem; font-weight: 700; color: var(--green-dk); font-family: 'JetBrains Mono', monospace; }
+.saldo-val   { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: 700; color: var(--green-dk); }
+.saldo-neg .saldo-signo,
+.saldo-neg .saldo-val { color: var(--red); }
+
+/* ===================== CIERRE DE CAJA (SUCURSAL) ===================== */
+.section-label.cierre { color: var(--purple); border-color: var(--purple); }
+
+.cierre-saldo-ref {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+}
+.cierre-ref-label { font-size: .72rem; color: var(--muted2); }
+.cierre-ref-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .92rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cierre-diferencia {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+}
+.cierre-dif-label { font-size: .72rem; color: var(--muted2); }
+.cierre-dif-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .95rem;
+  font-weight: 700;
+}
+
+.btn-guardar.cierre-save { background: var(--purple); }
+.btn-guardar.cierre-save:hover { background: #5b21b6; }
+
+.cierre-done-card {
+  text-align: center;
+  padding: 24px 16px;
+  background: var(--green-bg);
+  border: 1.5px solid var(--green);
+  border-radius: 10px;
+}
+.cierre-done-icon  { font-size: 2rem; color: var(--green-dk); margin-bottom: 6px; }
+.cierre-done-title { font-size: .85rem; font-weight: 700; color: var(--green-dk); margin-bottom: 10px; }
+.cierre-done-data  { font-size: .78rem; color: var(--muted2); display: flex; flex-direction: column; gap: 4px; }
+
+@media (max-width: 700px) {
+  .resumen-col { gap: 12px; }
+}
+
 /* ===================== RESPONSIVE ===================== */
 @media (max-width: 700px) {
   .layout { grid-template-columns: 1fr; }

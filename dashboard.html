@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="VV Dashboard">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-dashboard-192.png">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
@@ -59,7 +59,7 @@
   <!-- TOPBAR -->
   <header class="topbar">
     <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
-    <div class="topbar-center" id="section-title">Dashboard</div>
+    <div class="topbar-center" id="section-title">Verde Tokio S.R.L </div>
     <div class="reloj" id="reloj">--:--</div>
   </header>
 
@@ -105,29 +105,59 @@
         </div>
       </div>
 
-      <div class="block-title">⚡ Últimas cargas</div>
-      <div class="desktop-feed-row">
-        <div class="feed-card" id="feed-home"></div>
-        <div>
-          <div class="block-title" style="margin-top:0">🔒 Cierre de caja — hoy</div>
-          <div class="cierre-strip" id="cierre-strip-home"></div>
+      <div class="block-title">🔒 Cierre de caja — hoy</div>
+      <div class="cierre-total-banner">
+        <span class="cierre-total-label">Efectivo disponible total</span>
+        <span class="cierre-total-val" id="cierre-total-val">—</span>
+      </div>
+      <div class="cierre-strip" id="cierre-strip-home"></div>
+
+      <div class="block-title">📊 Resumen semanal</div>
+      <div class="semanal-grid">
+
+        <!-- COMPRAS -->
+        <div class="semanal-card">
+          <div class="semanal-card-header">
+            <div>
+              <div class="semanal-card-title">🧾 Compras semanales</div>
+              <div class="semanal-card-sub">Facturas + egresos insumos/proveedores</div>
+            </div>
+            <button class="semanal-ver-mas" data-goto="facturas">Ver más →</button>
+          </div>
+          <div class="semanal-total-row">
+            <span class="semanal-total-label">Total semana actual</span>
+            <span class="semanal-total-val red" id="semanal-compras-total">—</span>
+          </div>
+          <table class="semanal-tabla">
+            <thead><tr><th>Semana</th><th>Facturas</th><th>Egresos</th><th>Total</th></tr></thead>
+            <tbody id="semanal-compras-tbody"></tbody>
+          </table>
         </div>
+
+        <!-- VENTAS -->
+        <div class="semanal-card">
+          <div class="semanal-card-header">
+            <div>
+              <div class="semanal-card-title">💰 Ventas semanales</div>
+              <div class="semanal-card-sub">Todos los medios de pago · todas las sucursales</div>
+            </div>
+            <button class="semanal-ver-mas" data-goto="historial">Ver más →</button>
+          </div>
+          <div class="semanal-total-row">
+            <span class="semanal-total-label">Total semana actual</span>
+            <span class="semanal-total-val green" id="semanal-ventas-total">—</span>
+          </div>
+          <table class="semanal-tabla">
+            <thead><tr><th>Semana</th><th>Efectivo</th><th>Digital</th><th>Total</th></tr></thead>
+            <tbody id="semanal-ventas-tbody"></tbody>
+          </table>
+        </div>
+
       </div>
 
-      <div class="block-title">💵 Efectivo disponible por sucursal</div>
-      <div class="efectivo-tabla-wrap">
-        <table class="efectivo-tabla">
-          <thead>
-            <tr>
-              <th>Sucursal</th>
-              <th>Estado</th>
-              <th class="ef-bar-cell">Proporción</th>
-              <th>Saldo</th>
-            </tr>
-          </thead>
-          <tbody id="efectivo-tbody"></tbody>
-        </table>
-      </div>
+      <div class="block-title">⚡ Últimas cargas</div>
+      <div class="feed-card" id="feed-home"></div>
+
     </section>
 
     <!-- OBJETIVOS -->
@@ -275,7 +305,7 @@
   <script src="js/dashboard.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/vv-global/sw.js");
+      navigator.serviceWorker.register("/vv-global/js/sw.js");
     }
   </script>
 </body>

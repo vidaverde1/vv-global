@@ -208,7 +208,6 @@
           <div class="form-card">
             <div class="section-label cierre">🔒 Cierre de caja</div>
 
-            <!-- Estado: ya cerrado hoy -->
             <div id="cierre-ya-hecho" class="hidden">
               <div class="cierre-done-card">
                 <div class="cierre-done-icon">✓</div>
@@ -217,13 +216,11 @@
               </div>
             </div>
 
-            <!-- Formulario de cierre -->
             <div id="cierre-form">
               <div class="cierre-saldo-ref">
                 <span class="cierre-ref-label">Saldo del sistema</span>
                 <span class="cierre-ref-val" id="cierre-saldo-sistema">calculando...</span>
               </div>
-
               <div class="field-row" style="margin-top:14px">
                 <label>Efectivo contado</label>
                 <div class="input-wrap">
@@ -231,17 +228,14 @@
                   <input type="number" id="cierre-contado" min="0" step="1" placeholder="0">
                 </div>
               </div>
-
               <div class="cierre-diferencia" id="cierre-diferencia-wrap">
                 <span class="cierre-dif-label">Diferencia</span>
                 <span class="cierre-dif-val" id="cierre-diferencia-val">—</span>
               </div>
-
               <div class="nota-wrap" style="margin-top:10px">
                 <label>Nota (opcional)</label>
                 <textarea id="cierre-nota" placeholder="Observaciones del cierre..."></textarea>
               </div>
-
               <button class="btn-guardar cierre-save" id="btn-guardar-cierre">🔒 Cerrar Caja</button>
             </div>
           </div>
@@ -249,27 +243,47 @@
 
       </div><!-- /form-col -->
 
-      <!-- COLUMNA DERECHA: resumen -->
-      <div class="resumen-card">
-        <div class="section-label" style="color:var(--text);border-color:var(--border2)">Resumen de hoy</div>
-        <div class="totales-grid">
-          <div class="total-box">
-            <div class="t-label">Ventas</div>
-            <div class="t-value" id="total-ing">$0</div>
+      <!-- COLUMNA DERECHA: resumen + objetivo -->
+      <div class="resumen-col">
+
+        <div class="resumen-card">
+          <div class="section-label" style="color:var(--text);border-color:var(--border2)">Resumen de hoy</div>
+          <div class="totales-grid">
+            <div class="total-box">
+              <div class="t-label">Ventas</div>
+              <div class="t-value" id="total-ing">$0</div>
+            </div>
+            <div class="total-box">
+              <div class="t-label">Egresos</div>
+              <div class="t-value" id="total-eg">$0</div>
+            </div>
+            <div class="total-box">
+              <div class="t-label" id="neto-label">Neto</div>
+              <div class="t-value" id="total-net">$0</div>
+            </div>
           </div>
-          <div class="total-box">
-            <div class="t-label">Egresos</div>
-            <div class="t-value" id="total-eg">$0</div>
-          </div>
-          <div class="total-box">
-            <div class="t-label" id="neto-label">Neto</div>
-            <div class="t-value" id="total-net">$0</div>
+          <div class="resumen-lista" id="resumen-lista">
+            <div class="empty-state">Conectando con Firebase...</div>
           </div>
         </div>
-        <div class="resumen-lista" id="resumen-lista">
-          <div class="empty-state">Conectando con Firebase...</div>
+
+        <!-- OBJETIVO DEL MES -->
+        <div class="obj-suc-card" id="obj-suc-card">
+          <div class="obj-suc-header">
+            <span class="obj-suc-titulo">🎯 Objetivo del mes</span>
+            <span class="obj-suc-pct" id="obj-suc-pct">—</span>
+          </div>
+          <div class="obj-suc-bar-bg">
+            <div class="obj-suc-bar-fill" id="obj-suc-bar-fill"></div>
+          </div>
+          <div class="obj-suc-nums">
+            <span class="obj-suc-acum" id="obj-suc-acum">—</span>
+            <span class="obj-suc-meta" id="obj-suc-meta">—</span>
+          </div>
+          <div class="obj-suc-prom" id="obj-suc-prom"></div>
         </div>
-      </div>
+
+      </div><!-- /resumen-col -->
 
     </div><!-- /layout -->
   </div><!-- /carga-inner -->

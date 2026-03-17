@@ -300,6 +300,7 @@ function renderHome() {
 
   renderFeed();
   renderChartsHome();
+  renderSemanal();
 }
 
 function renderFeed() {
@@ -1162,80 +1163,165 @@ function initToggleHist() {
   });
 }
 
-// ===================== EFECTIVO POR SUCURSAL =====================
-function renderEfectivoTabla(snapTotal) {
-  var tbody = document.getElementById("efectivo-tbody");
-  if (!tbody) return;
+// ===================== SECCIÓN: SEMANAL =====================
+function semanasDelMesActual() {
+  var hoy    = new Date();
+  var anio   = hoy.getFullYear();
+  var mesN   = hoy.getMonth();
+  var primer = new Date(anio, mesN, 1);
+  var ultimo  = new Date(anio, mesN + 1, 0);
+  var semanas = [];
+  var sem = 1;
+  var d = new Date(primer);
+  while (d <= ultimo) {
+    var desde = d.toISOString().slice(0,10);
+    var fin   = new Date(d);
+    fin.setDate(fin.getDate() + (6 - fin.getDay()));
+    if (fin > ultimo) fin = new Date(ultimo);
+    var hasta = fin.toISOString().slice(0,10);
+    semanas.push({ label: "SEM " + sem, desde: desde, hasta: hasta });
+    sem++;
+    d = new Date(fin);
+    d.setDate(d.getDate() + 1);
+  }
+  return semanas;
+}
 
-  // Calcular saldo de efectivo para cada sucursal
-  var saldos = {};
-  SUCURSALES.forEach(function(s){ saldos[s] = 0; });
+function semanaActual() {
+  var hoy     = today();
+  var semanas = semanasDelMesActual();
+  for (var i = 0; i < semanas.length; i++) {
+    if (hoy >= semanas[i].desde && hoy <= semanas[i].hasta) return semanas[i];
+  }
+  return semanas[semanas.length - 1];
+}
 
-  if (snapTotal && snapTotal.exists()) {
-    snapTotal.forEach(function(daySnap) {
-      daySnap.forEach(function(sucSnap) {
-        var suc = sucSnap.key;
-        if (!saldos.hasOwnProperty(suc)) return;
-        sucSnap.forEach(function(regSnap) {
-          var r = regSnap.val();
-          if (r.esEspejoInter) return;
-          if (r.tipo === "ventas") {
-            saldos[suc] += (r.ventas && r.ventas["efectivo"]) ? r.ventas["efectivo"] : 0;
-          } else if (r.tipo === "movimientos") {
-            (r.ingresosInter || []).forEach(function(i){ saldos[suc] += i.monto || 0; });
-            saldos[suc] -= r.totalEgresos || 0;
-          } else if (!r.tipo) {
-            saldos[suc] += (r.ingresos && r.ingresos["efectivo"]) ? r.ingresos["efectivo"] : 0;
-            saldos[suc] -= r.totalEgresos || 0;
-          }
+function renderSemanal() {
+  // Solo renderizar si los elementos existen en el DOM
+  var compTbody = document.getElementById("semanal-compras-tbody");
+  var ventTbody = document.getElementById("semanal-ventas-tbody");
+  if (!compTbody || !ventTbody) return;
+  var semanas  = semanasDelMesActual();
+  var semHoy   = semanaActual();
+  var facturas = allFacturas || [];
+
+  // COMPRAS: facturas + egresos proveedores/insumos
+  var comprasSems = semanas.map(function(s) {
+    var factTotal = facturas
+      .filter(function(f) { return f.fecha && f.fecha >= s.desde && f.fecha <= s.hasta; })
+      .reduce(function(a, f) { return a + (f.monto || 0); }, 0);
+
+    var egTotal = 0;
+    Object.keys(allData).forEach(function(fecha) {
+      if (fecha < s.desde || fecha > s.hasta) return;
+      SUCURSALES.forEach(function(suc) {
+        (allData[fecha][suc] || []).forEach(function(r) {
+          var eg = (r.tipo === "movimientos" || !r.tipo) ? (r.egresos || {}) : {};
+          egTotal += eg["proveedores"] || 0;
+          egTotal += eg["insumos"]     || 0;
         });
       });
     });
-  }
+    return { label: s.label, desde: s.desde, facturas: factTotal, egresos: egTotal, total: factTotal + egTotal };
+  });
 
-  // Máximo absoluto para la barra proporcional
-  var maxAbs = Math.max(1, Math.max.apply(null, SUCURSALES.map(function(s){ return Math.abs(saldos[s]); })));
+  // VENTAS: todos los medios de pago
+  var ventasSems = semanas.map(function(s) {
+    var efectivo = 0, digital = 0;
+    Object.keys(allData).forEach(function(fecha) {
+      if (fecha < s.desde || fecha > s.hasta) return;
+      SUCURSALES.forEach(function(suc) {
+        (allData[fecha][suc] || []).forEach(function(r) {
+          var v = (r.tipo === "ventas") ? (r.ventas || {}) : (!r.tipo ? (r.ingresos || {}) : {});
+          efectivo += v["efectivo"]      || 0;
+          digital  += v["debito"]        || 0;
+          digital  += v["credito"]       || 0;
+          digital  += v["transferencia"] || 0;
+          digital  += v["mercadopago"]   || 0;
+        });
+      });
+    });
+    return { label: s.label, desde: s.desde, efectivo: efectivo, digital: digital, total: efectivo + digital };
+  });
 
-  tbody.innerHTML = "";
-  SUCURSALES.forEach(function(suc) {
-    var saldo = saldos[suc];
-    var pct   = Math.round(Math.abs(saldo) / maxAbs * 100);
-    var color = COLORS[suc];
-    var esPos = saldo >= 0;
+  // Totales semana actual
+  var compSemActual = comprasSems.find(function(s) { return s.desde === semHoy.desde; }) || { total: 0 };
+  var ventSemActual = ventasSems.find(function(s)  { return s.desde === semHoy.desde; }) || { total: 0 };
+  document.getElementById("semanal-compras-total").textContent = fmtFull(compSemActual.total);
+  document.getElementById("semanal-ventas-total").textContent  = fmtFull(ventSemActual.total);
+
+  // Tabla compras
+  var compTbody = document.getElementById("semanal-compras-tbody");
+  compTbody.innerHTML = "";
+  comprasSems.forEach(function(s) {
+    var activo = s.desde === semHoy.desde;
     var tr = document.createElement("tr");
+    if (activo) tr.className = "semanal-row-actual";
     tr.innerHTML =
-      '<td><span class="ef-suc" style="color:' + color + '">' + suc + '</span></td>' +
-      '<td><span class="ef-estado">' + (esPos ? "✓ positivo" : "⚠ negativo") + '</span></td>' +
-      '<td class="ef-bar-cell"><div class="ef-bar-wrap"><div class="ef-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div></td>' +
-      '<td><span class="ef-val ' + (esPos ? "positivo" : "negativo") + '">' + (esPos ? "+" : "−") + fmtM(Math.abs(saldo)) + '</span></td>';
-    tbody.appendChild(tr);
+      '<td><span class="semanal-sem-label">' + s.label + '</span>' + (activo ? ' <span class="semanal-badge-actual">actual</span>' : '') + '</td>' +
+      '<td class="semanal-td-num">' + (s.facturas ? fmtM(s.facturas) : '—') + '</td>' +
+      '<td class="semanal-td-num">' + (s.egresos  ? fmtM(s.egresos)  : '—') + '</td>' +
+      '<td class="semanal-td-tot">' + (s.total    ? fmtM(s.total)    : '—') + '</td>';
+    compTbody.appendChild(tr);
+  });
+
+  // Tabla ventas
+  var ventTbody = document.getElementById("semanal-ventas-tbody");
+  ventTbody.innerHTML = "";
+  ventasSems.forEach(function(s) {
+    var activo = s.desde === semHoy.desde;
+    var tr = document.createElement("tr");
+    if (activo) tr.className = "semanal-row-actual";
+    tr.innerHTML =
+      '<td><span class="semanal-sem-label">' + s.label + '</span>' + (activo ? ' <span class="semanal-badge-actual">actual</span>' : '') + '</td>' +
+      '<td class="semanal-td-num">' + (s.efectivo ? fmtM(s.efectivo) : '—') + '</td>' +
+      '<td class="semanal-td-num">' + (s.digital  ? fmtM(s.digital)  : '—') + '</td>' +
+      '<td class="semanal-td-tot">' + (s.total    ? fmtM(s.total)    : '—') + '</td>';
+    ventTbody.appendChild(tr);
   });
 }
 
+function initSemanal() {
+  document.querySelectorAll(".semanal-ver-mas").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      goToSection(btn.getAttribute("data-goto"));
+    });
+  });
+}
+
+// ===================== CIERRE DE CAJA + TOTAL EFECTIVO =====================
+function renderEfectivoTabla() {
+  // Ya no hay tabla de efectivo — la info está en renderCierreStrip
+}
 
 function renderCierreStrip() {
-  var cont = document.getElementById("cierre-strip-home");
+  var cont     = document.getElementById("cierre-strip-home");
+  var totalVal = document.getElementById("cierre-total-val");
   if (!cont) return;
   cont.innerHTML = '<div class="empty-st" style="padding:12px 0;font-size:.78rem">Cargando cierres...</div>';
 
   firebase.database().ref("cierres/" + today()).once("value", function(snap) {
     cont.innerHTML = "";
+    var totalContado = 0;
+    var algoCerrado  = false;
+
     SUCURSALES.forEach(function(suc) {
       var card = document.createElement("div");
       card.className = "cierre-dash-card";
-      card.setAttribute("data-suc", suc);
       var c = COLORS[suc];
 
       if (snap.exists() && snap.child(suc).exists()) {
         var d        = snap.child(suc).val();
         var difSign  = d.diferencia >= 0 ? "+" : "−";
         var difColor = d.diferencia >= 0 ? "var(--green)" : "var(--red)";
-        var hora     = new Date(d.timestamp).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+        var hora     = new Date(d.timestamp).toLocaleTimeString("es-AR", { hour:"2-digit", minute:"2-digit" });
+        totalContado += d.contado || 0;
+        algoCerrado   = true;
         card.classList.add("cierre-ok");
         card.innerHTML =
           '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
           '<div class="cs-estado cs-cerrado">✓ Cerrado ' + hora + '</div>' +
-          '<div class="cs-row"><span class="cs-lbl">Contado</span><span class="cs-val">' + fmtM(d.contado) + '</span></div>' +
+          '<div class="cs-row"><span class="cs-lbl">Contado</span><span class="cs-val cs-contado-verde">' + fmtM(d.contado) + '</span></div>' +
           '<div class="cs-row"><span class="cs-lbl">Sistema</span><span class="cs-val">' + fmtM(d.saldoSistema) + '</span></div>' +
           '<div class="cs-row"><span class="cs-lbl">Diferencia</span><span class="cs-val" style="color:' + difColor + '">' + difSign + fmtM(Math.abs(d.diferencia)) + '</span></div>' +
           (d.nota ? '<div class="cs-nota">' + d.nota + '</div>' : '');
@@ -1247,6 +1333,17 @@ function renderCierreStrip() {
       }
       cont.appendChild(card);
     });
+
+    // Banner total
+    if (totalVal) {
+      if (algoCerrado) {
+        totalVal.textContent  = fmtFull(totalContado);
+        totalVal.style.color  = "var(--green)";
+      } else {
+        totalVal.textContent = "Sin cierres aún";
+        totalVal.style.color = "var(--muted)";
+      }
+    }
   });
 }
 
@@ -1304,6 +1401,7 @@ function initApp() {
   initNav();
   initObjetivosModal();
   initFacturas();
+  initSemanal();
   initToggleParticipacion();
   initToggleEgresos();
   initToggleHist();
