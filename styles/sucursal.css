@@ -941,3 +941,38 @@ body {
 
 .conn-label-online  { color: var(--green-dk); }
 .conn-label-offline { color: var(--red); }
+
+/* ===================== VENTAS: INPUTS ALINEADOS EN COLUMNA ===================== */
+/* Agregar al final de styles/sucursal.css */
+
+/* En el tab de ventas, todos los inputs quedan en columna alineada a la derecha */
+#tab-ventas .field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+#tab-ventas .field-row label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#tab-ventas .input-wrap {
+  flex-shrink: 0;
+  width: 150px;
+}
+
+#tab-ventas .input-wrap input {
+  width: 100%;
+}
+
+@media (max-width: 400px) {
+  #tab-ventas .input-wrap {
+    width: 120px;
+  }
+}
