@@ -891,3 +891,53 @@ body {
   .field-row { flex-wrap: wrap; }
   .field-row label { min-width: 100%; }
 }
+
+/* ===================== INDICADOR DE CONEXIÓN ===================== */
+/* Agregar al final de styles/sucursal.css */
+
+.topbar-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.conn-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.conn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background .4s;
+}
+
+.conn-online {
+  background: var(--green);
+  animation: conn-pulse 2s infinite;
+}
+
+.conn-offline {
+  background: var(--red);
+  animation: none;
+}
+
+@keyframes conn-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: .35; transform: scale(.65); }
+}
+
+.conn-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .6rem;
+  font-weight: 600;
+  letter-spacing: .5px;
+  transition: color .4s;
+}
+
+.conn-label-online  { color: var(--green-dk); }
+.conn-label-offline { color: var(--red); }

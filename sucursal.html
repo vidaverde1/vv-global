@@ -1,28 +1,28 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Carga Diaria — Sucursal</title>
-  <link rel="stylesheet" href="styles/sucursal.css">
-  <link rel="manifest" href="manifest-sucursal.json">
-  <meta name="theme-color" content="#ffffff">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="VV Sucursal">
-  <link rel="apple-touch-icon" href="icons/icon-sucursal-192.png">
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-  <script src="config.js"></script>
-  <script>
-    firebase.initializeApp(VV_CONFIG.firebase);
-  </script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vida Verde - Sucursal</title>
+<link rel="stylesheet" href="styles/sucursal.css">
+<link rel="manifest" href="manifest-sucursal.json">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="VV Sucursal">
+<link rel="apple-touch-icon" href="icons/icon-sucursal-192.png">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="config.js"></script>
+<script>
+firebase.initializeApp(VV_CONFIG.firebase);
+</script>
 </head>
 <body>
 
 <!-- PANTALLA 1: Selección de sucursal -->
 <div id="pantalla-seleccion">
-  <div class="sel-eyebrow">Sistema de Carga · VV Global</div>
+  <div class="sel-eyebrow">Sistema de Carga · Vida Verde</div>
   <h1 class="sel-title">Configuración inicial</h1>
   <p class="sel-sub">Seleccioná la sucursal de esta PC</p>
   <div class="suc-grid" id="sucGrid"></div>
@@ -51,7 +51,13 @@
       <span class="suc-badge" id="suc-badge">—</span>
       <button class="btn-cambiar" id="btn-cambiar">⚙ Cambiar</button>
     </div>
-    <div class="topbar-fecha" id="fecha-hoy"></div>
+    <div class="topbar-right">
+      <div class="conn-indicator" id="conn-indicator">
+        <span class="conn-dot" id="conn-dot"></span>
+        <span class="conn-label" id="conn-label">conectando...</span>
+      </div>
+      <div class="topbar-fecha" id="fecha-hoy"></div>
+    </div>
   </div>
 
   <div class="carga-inner">
@@ -63,7 +69,7 @@
         <span class="saldo-icon">💵</span>
         <div class="saldo-texts">
           <span class="saldo-label">Efectivo disponible en caja</span>
-          <span class="saldo-sub">Acumulado histórico · ventas + ingresos − egresos</span>
+          <span class="saldo-sub">Actualizado al cargar datos.</span>
         </div>
       </div>
       <div class="saldo-right">
@@ -73,7 +79,6 @@
     </div>
 
     <div class="layout">
-
       <!-- COLUMNA IZQUIERDA: tabs -->
       <div class="form-col">
         <div class="tabs">
@@ -184,7 +189,7 @@
                   <option value="vencimiento">Vencimiento</option>
                   <option value="deterioro">Deterioro</option>
                   <option value="rotura">Rotura</option>
-                  <option value="robo">Robo / faltante</option>
+                  <option value="robo">Faltante</option>
                   <option value="otros">Otros</option>
                 </select>
               </div>
@@ -207,7 +212,6 @@
         <div class="tab-panel hidden" id="tab-cierre">
           <div class="form-card">
             <div class="section-label cierre">🔒 Cierre de caja</div>
-
             <div id="cierre-ya-hecho" class="hidden">
               <div class="cierre-done-card">
                 <div class="cierre-done-icon">✓</div>
@@ -215,7 +219,6 @@
                 <div class="cierre-done-data" id="cierre-done-data"></div>
               </div>
             </div>
-
             <div id="cierre-form">
               <div class="cierre-saldo-ref">
                 <span class="cierre-ref-label">Saldo del sistema</span>
@@ -245,7 +248,6 @@
 
       <!-- COLUMNA DERECHA: resumen + objetivo -->
       <div class="resumen-col">
-
         <div class="resumen-card">
           <div class="section-label" style="color:var(--text);border-color:var(--border2)">Resumen de hoy</div>
           <div class="totales-grid">
@@ -282,7 +284,6 @@
           </div>
           <div class="obj-suc-prom" id="obj-suc-prom"></div>
         </div>
-
       </div><!-- /resumen-col -->
 
     </div><!-- /layout -->
@@ -292,9 +293,9 @@
 <div class="toast" id="toast"></div>
 <script src="js/sucursal.js"></script>
 <script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/vv-global/js/sw.js");
-  }
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/vv-global/js/sw.js");
+}
 </script>
 </body>
 </html>

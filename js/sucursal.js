@@ -5,8 +5,9 @@ var RUBROS_VENTAS = [
   { id: "efectivo",      label: "Efectivo" },
   { id: "debito",        label: "Débito" },
   { id: "credito",       label: "Crédito" },
-  { id: "transferencia", label: "Transferencia" },
-  { id: "mercadopago",   label: "Mercado Pago / QR" }
+  { id: "mercadopago",   label: "Mercado Pago / QR" },
+  { id: "linkpago",      label: "Link de Pago" },
+  { id: "transferencia", label: "Transferencia" }
 ];
 
 var CATS_EG = {
@@ -22,7 +23,7 @@ var MOTIVOS_MERMA = {
   vencimiento: "Vencimiento",
   deterioro:   "Deterioro",
   rotura:      "Rotura",
-  robo:        "Robo / faltante",
+  robo:        "Faltante",
   otros:       "Otros"
 };
 
@@ -825,6 +826,20 @@ function renderResumen() {
   document.getElementById("neto-label").textContent = neto >= 0 ? "Neto +" : "Neto −";
 }
 
+// ===================== INDICADOR DE CONEXIÓN =====================
+function initConexion() {
+  var dot   = document.getElementById("conn-dot");
+  var label = document.getElementById("conn-label");
+  if (!dot || !label) return;
+
+  firebase.database().ref(".info/connected").on("value", function(snap) {
+    var online = snap.val() === true;
+    dot.className     = "conn-dot " + (online ? "conn-online" : "conn-offline");
+    label.textContent = online ? "en línea" : "sin conexión";
+    label.className   = "conn-label " + (online ? "conn-label-online" : "conn-label-offline");
+  });
+}
+
 // ===================== FIREBASE =====================
 function conectarFirebase(sucursal) {
   // Desconectar listeners anteriores
@@ -865,6 +880,9 @@ function conectarFirebase(sucursal) {
     cierreRef.on("value", function(snap) {
       renderCierre(snap);
     });
+
+    // Indicador de conexión en tiempo real
+    initConexion();
 
   } catch(e) {
     console.error(e);

@@ -11,8 +11,9 @@ var RUBROS_ING = [
   { id: "efectivo",      label: "Efectivo" },
   { id: "debito",        label: "Débito" },
   { id: "credito",       label: "Crédito" },
-  { id: "transferencia", label: "Transferencia" },
-  { id: "mercadopago",   label: "Mercado Pago / QR" }
+  { id: "mercadopago",   label: "Mercado Pago / QR" },
+  { id: "linkpago",      label: "Link de Pago" },
+  { id: "transferencia", label: "Transferencia" }
 ];
 var RUBROS_EG = [
   { id: "proveedores", label: "Proveedores" },
