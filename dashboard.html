@@ -47,6 +47,7 @@
       <li class="menu-item active" data-section="home"><span class="menu-icon">⬡</span>Dashboard</li>
       <li class="menu-item" data-section="objetivos"><span class="menu-icon">◎</span>Objetivos</li>
       <li class="menu-item" data-section="facturas"><span class="menu-icon">◧</span>Facturas</li>
+      <li class="menu-item" data-section="deudas"><span class="menu-icon">◈</span>Deudas</li>
       <li class="menu-item" data-section="egresos"><span class="menu-icon">◑</span>Egresos</li>
       <li class="menu-item" data-section="merma"><span class="menu-icon">◫</span>Merma</li>
       <li class="menu-item" data-section="historial"><span class="menu-icon">◷</span>Historial</li>
@@ -65,6 +66,45 @@
 
   <!-- MAIN -->
   <main class="main-content">
+
+    <!-- MODAL CLAVE ADMIN -->
+<div id="admin-modal" class="admin-modal-overlay hidden">
+  <div class="db-login-card">
+    <div class="db-login-logo">VV<span>GLOBAL</span></div>
+    <div class="db-login-title">Acción protegida</div>
+    <div class="db-login-sub" id="admin-modal-sub">Ingresá la clave de administrador</div>
+    <div class="db-login-field">
+      <input type="password" id="admin-modal-input" placeholder="Clave admin" autocomplete="off">
+    </div>
+    <div class="db-login-error hidden" id="admin-modal-error">Clave incorrecta</div>
+    <button class="db-login-btn" id="admin-modal-btn">Confirmar</button>
+    <button class="admin-modal-cancel" id="admin-modal-cancel">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL ABONO DEUDA -->
+<div id="abono-modal" class="admin-modal-overlay hidden">
+  <div class="db-login-card">
+    <div class="db-login-logo">VV<span>GLOBAL</span></div>
+    <div class="db-login-title">Registrar abono</div>
+    <div class="abono-modal-deuda-info" id="abono-modal-info">—</div>
+
+    <div class="abono-total-row">
+      <label class="abono-total-label">
+        <input type="checkbox" id="abono-pago-total">
+        <span>Pago total</span>
+      </label>
+    </div>
+
+    <div class="db-login-field" id="abono-monto-wrap">
+      <input type="number" id="abono-modal-monto" placeholder="Monto a abonar" min="0" step="1">
+    </div>
+
+    <div class="db-login-error hidden" id="abono-modal-error">Ingresá un monto válido</div>
+    <button class="db-login-btn" id="abono-modal-btn">Confirmar abono</button>
+    <button class="admin-modal-cancel" id="abono-modal-cancel">Cancelar</button>
+  </div>
+</div>
 
     <!-- DASHBOARD PRINCIPAL -->
     <section class="section active" id="section-home">
@@ -260,6 +300,58 @@
         </table>
       </div>
     </section>
+
+    <!-- DEUDAS -->
+<section class="section" id="section-deudas">
+  <div class="section-top-row">
+    <div class="section-desc">Seguimiento de deudas y obligaciones por categoría</div>
+  </div>
+
+  <!-- FORMULARIO NUEVA DEUDA -->
+  <div class="deuda-form-card">
+    <div class="block-title" style="margin-top:0">Registrar deuda</div>
+    <div class="deuda-form-grid">
+      <div class="fact-field">
+        <label>Categoría</label>
+        <div class="select-wrap-dark">
+          <select id="deuda-categoria">
+            <option value="">— Seleccioná —</option>
+            <option value="banco">Banco</option>
+            <option value="cuenta_corriente">Cuenta Corriente</option>
+            <option value="cheques">Cheques</option>
+            <option value="tarjetas">Tarjetas</option>
+            <option value="proveedores">Proveedores</option>
+            <option value="sueldos">Sueldos</option>
+            <option value="cargas_sociales">Cargas Sociales</option>
+            <option value="servicios">Servicios</option>
+            <option value="alquileres">Alquileres</option>
+            <option value="impuestos">Impuestos</option>
+          </select>
+        </div>
+      </div>
+      <div class="fact-field">
+        <label>Descripción</label>
+        <input type="text" id="deuda-descripcion" placeholder="Detalle (opcional)">
+      </div>
+      <div class="fact-field">
+        <label>Monto</label>
+        <div class="fact-monto-wrap">
+          <span class="fact-prefix">$</span>
+          <input type="number" id="deuda-monto" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+    </div>
+    <button class="btn-guardar-fact" id="btn-guardar-deuda">+ Registrar Deuda</button>
+  </div>
+
+  <!-- RESUMEN POR CATEGORÍA -->
+  <div class="block-title">Resumen por categoría</div>
+  <div class="deuda-resumen-strip" id="deuda-resumen-strip"></div>
+
+  <!-- LISTA DE DEUDAS -->
+  <div class="block-title">Detalle de deudas activas</div>
+  <div class="deuda-lista" id="deuda-lista"></div>
+</section>
 
     <!-- EGRESOS -->
     <section class="section" id="section-egresos">

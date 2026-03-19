@@ -101,18 +101,93 @@ function initDashLogin() {
   return false;
 }
 
-// Helper: pide clave admin (dashboard) para acciones protegidas
-// Devuelve Promise<boolean>
+// ===================== CLAVE ADMIN — REEMPLAZA pedirClaveAdmin() =====================
+// Pegar esto en dashboard.js reemplazando la función pedirClaveAdmin() existente
+
+var ADMIN_KEY      = "vvglobal_admin_auth";
+var ADMIN_DURATION = 60 * 60 * 1000; // 1 hora
+
+function adminAuthValida() {
+  try {
+    var raw = localStorage.getItem(ADMIN_KEY);
+    if (!raw) return false;
+    var data = JSON.parse(raw);
+    return (Date.now() - data.ts) < ADMIN_DURATION;
+  } catch(e) { return false; }
+}
+
+function guardarAdminAuth() {
+  localStorage.setItem(ADMIN_KEY, JSON.stringify({ ts: Date.now() }));
+}
+
+// Reemplaza el prompt() nativo — devuelve Promise<boolean>
 function pedirClaveAdmin() {
+  // Si ya está autenticado y no expiró, no pedir clave
+  if (adminAuthValida()) {
+    return Promise.resolve(true);
+  }
+
   return new Promise(function(resolve) {
-    var clave = prompt("Ingresá la clave de administrador:");
-    if (!clave) { resolve(false); return; }
-    firebase.database().ref("config/claves/admin").once("value")
-      .then(function(snap) {
-        var ok = !snap.exists() || clave.trim() === String(snap.val()).trim();
-        resolve(ok);
-      })
-      .catch(function() { resolve(false); });
+    var overlay  = document.getElementById("admin-modal");
+    var input    = document.getElementById("admin-modal-input");
+    var btn      = document.getElementById("admin-modal-btn");
+    var cancelBtn= document.getElementById("admin-modal-cancel");
+    var errEl    = document.getElementById("admin-modal-error");
+
+    // Limpiar estado anterior
+    input.value = "";
+    errEl.classList.add("hidden");
+    btn.disabled = false;
+    btn.textContent = "Confirmar";
+
+    // Mostrar modal
+    overlay.classList.remove("hidden");
+    setTimeout(function() { input.focus(); }, 80);
+
+    function cerrar(resultado) {
+      overlay.classList.add("hidden");
+      // Remover listeners para no acumularlos
+      btn.removeEventListener("click", intentar);
+      cancelBtn.removeEventListener("click", cancelar);
+      input.removeEventListener("keyup", onKey);
+      resolve(resultado);
+    }
+
+    function intentar() {
+      var clave = input.value.trim();
+      if (!clave) return;
+      btn.disabled = true;
+      btn.textContent = "Verificando...";
+      errEl.classList.add("hidden");
+
+      firebase.database().ref("config/claves/admin").once("value")
+        .then(function(snap) {
+          var ok = !snap.exists() || clave === String(snap.val()).trim();
+          if (ok) {
+            guardarAdminAuth();
+            cerrar(true);
+          } else {
+            errEl.classList.remove("hidden");
+            input.value = "";
+            input.focus();
+            btn.disabled = false;
+            btn.textContent = "Confirmar";
+          }
+        })
+        .catch(function() {
+          errEl.textContent = "Error de conexión. Intentá de nuevo.";
+          errEl.classList.remove("hidden");
+          btn.disabled = false;
+          btn.textContent = "Confirmar";
+        });
+    }
+
+    function cancelar() { cerrar(false); }
+    function onKey(e)   { if (e.key === "Enter") intentar(); }
+
+    btn.addEventListener("click", intentar);
+    cancelBtn.addEventListener("click", cancelar);
+    input.addEventListener("keyup", onKey);
   });
 }
 
@@ -255,7 +330,7 @@ function goToSection(sec) {
   document.querySelector("[data-section='" + sec + "']").classList.add("active");
   sectionActual = sec;
 
-  var titles = { home:"Dashboard", objetivos:"Objetivos", facturas:"Facturas", egresos:"Egresos", merma:"Merma", historial:"Historial" };
+  var titles = { home:"Dashboard", objetivos:"Objetivos", facturas:"Facturas", egresos:"Egresos", merma:"Merma", historial:"Historial", deudas:"Deudas" };
   document.getElementById("section-title").textContent = titles[sec] || sec;
 
   if (sec === "objetivos")  renderObjetivos();
@@ -263,6 +338,7 @@ function goToSection(sec) {
   if (sec === "egresos")    renderEgresos(periodEgresos);
   if (sec === "merma")      renderMerma();
   if (sec === "historial")  renderHistorial(periodHist);
+  if (sec === "deudas") renderDeudas();
 }
 
 // ===================== SECCIÓN: HOME =====================
@@ -1384,6 +1460,285 @@ function initFirebase() {
   });
 }
 
+// ===================== SECCIÓN: DEUDAS =====================
+
+var CATS_DEUDA = {
+  banco:           "Banco",
+  cuenta_corriente:"Cuenta Corriente",
+  cheques:         "Cheques",
+  tarjetas:        "Tarjetas",
+  proveedores:     "Proveedores",
+  sueldos:         "Sueldos",
+  cargas_sociales: "Cargas Sociales",
+  servicios:       "Servicios",
+  alquileres:      "Alquileres",
+  impuestos:       "Impuestos"
+};
+
+var allDeudas = [];
+
+function guardarDeuda() {
+  var cat    = document.getElementById("deuda-categoria").value;
+  var desc   = document.getElementById("deuda-descripcion").value.trim();
+  var monto  = parseFloat(document.getElementById("deuda-monto").value) || 0;
+
+  if (!cat)   { alert("Seleccioná una categoría."); return; }
+  if (!monto) { alert("Ingresá el monto."); return; }
+
+  var btn = document.getElementById("btn-guardar-deuda");
+  btn.disabled = true; btn.textContent = "Verificando...";
+
+  pedirClaveAdmin().then(function(ok) {
+    if (!ok) {
+      alert("Clave incorrecta.");
+      btn.disabled = false; btn.textContent = "+ Registrar Deuda";
+      return;
+    }
+    btn.textContent = "Guardando...";
+    firebase.database().ref("deudas").push({
+      categoria:   cat,
+      descripcion: desc,
+      montoOriginal: monto,
+      montoActual:   monto,
+      fecha:       today(),
+      timestamp:   Date.now(),
+      pagos:       []
+    })
+    .then(function() {
+      document.getElementById("deuda-categoria").value   = "";
+      document.getElementById("deuda-descripcion").value = "";
+      document.getElementById("deuda-monto").value       = "";
+    })
+    .catch(function(e) { alert("Error al guardar: " + e.message); })
+    .finally(function() { btn.disabled = false; btn.textContent = "+ Registrar Deuda"; });
+  });
+}
+
+// ===================== ABONO DEUDA — REEMPLAZA abonarDeuda() =====================
+// Pegar esto en dashboard.js reemplazando la función abonarDeuda() existente
+
+function abonarDeuda(id, montoActual) {
+  var overlay    = document.getElementById("abono-modal");
+  var infoEl     = document.getElementById("abono-modal-info");
+  var montoInput = document.getElementById("abono-modal-monto");
+  var checkTotal = document.getElementById("abono-pago-total");
+  var montoWrap  = document.getElementById("abono-monto-wrap");
+  var btn        = document.getElementById("abono-modal-btn");
+  var cancelBtn  = document.getElementById("abono-modal-cancel");
+  var errEl      = document.getElementById("abono-modal-error");
+
+  // Resetear estado
+  montoInput.value = "";
+  checkTotal.checked = false;
+  montoWrap.style.display = "block";
+  montoInput.disabled = false;
+  errEl.classList.add("hidden");
+  btn.disabled = false;
+  btn.textContent = "Confirmar abono";
+  infoEl.textContent = "Deuda actual: " + fmtFull(montoActual);
+
+  // Toggle pago total
+  function onCheckTotal() {
+    if (checkTotal.checked) {
+      montoInput.value = montoActual;
+      montoInput.disabled = true;
+      montoWrap.style.opacity = ".5";
+    } else {
+      montoInput.value = "";
+      montoInput.disabled = false;
+      montoWrap.style.opacity = "1";
+    }
+  }
+  checkTotal.addEventListener("change", onCheckTotal);
+
+  // Mostrar modal
+  overlay.classList.remove("hidden");
+  setTimeout(function() { montoInput.focus(); }, 80);
+
+  function cerrar() {
+    overlay.classList.add("hidden");
+    btn.removeEventListener("click", confirmar);
+    cancelBtn.removeEventListener("click", cerrar);
+    montoInput.removeEventListener("keyup", onKey);
+    checkTotal.removeEventListener("change", onCheckTotal);
+  }
+
+  function confirmar() {
+    var abono = parseFloat(montoInput.value);
+    if (!abono || abono <= 0 || abono > montoActual) {
+      errEl.textContent = abono > montoActual
+        ? "El monto supera la deuda actual."
+        : "Ingresá un monto válido.";
+      errEl.classList.remove("hidden");
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Guardando...";
+    errEl.classList.add("hidden");
+
+    var nuevoMonto = Math.max(montoActual - abono, 0);
+    var ref = firebase.database().ref("deudas/" + id);
+
+    ref.once("value").then(function(snap) {
+      if (!snap.exists()) { cerrar(); return; }
+      var d = snap.val();
+      var pagos = Array.isArray(d.pagos) ? d.pagos.slice() : [];
+      pagos.push({ monto: abono, fecha: today(), timestamp: Date.now() });
+
+      if (nuevoMonto === 0) {
+        firebase.database().ref("deudas_historial").push(
+          Object.assign({}, d, {
+            montoActual: 0,
+            pagos: pagos,
+            saldadaEl: today(),
+            saldadaTs: Date.now()
+          })
+        ).then(function() { ref.remove(); });
+      } else {
+        ref.update({ montoActual: nuevoMonto, pagos: pagos });
+      }
+      cerrar();
+    }).catch(function() {
+      errEl.textContent = "Error al guardar. Intentá de nuevo.";
+      errEl.classList.remove("hidden");
+      btn.disabled = false;
+      btn.textContent = "Confirmar abono";
+    });
+  }
+
+  function onKey(e) { if (e.key === "Enter") confirmar(); }
+
+  btn.addEventListener("click", confirmar);
+  cancelBtn.addEventListener("click", cerrar);
+  montoInput.addEventListener("keyup", onKey);
+}
+
+function eliminarDeuda(id) {
+  pedirClaveAdmin().then(function(ok) {
+    if (!ok) { alert("Clave incorrecta."); return; }
+    if (!confirm("¿Eliminar esta deuda?")) return;
+    firebase.database().ref("deudas/" + id).remove();
+  });
+}
+
+function renderDeudas() {
+  var strip  = document.getElementById("deuda-resumen-strip");
+  var lista  = document.getElementById("deuda-lista");
+  if (!strip || !lista) return;
+
+  // Sumar montos por categoría
+  var porCat = {};
+  Object.keys(CATS_DEUDA).forEach(function(k) { porCat[k] = 0; });
+  allDeudas.forEach(function(d) {
+    if (porCat[d.categoria] !== undefined) porCat[d.categoria] += d.montoActual || 0;
+    else porCat["proveedores"] += d.montoActual || 0;
+  });
+  var totalDeuda = Object.values(porCat).reduce(function(a,b){ return a+b; }, 0);
+
+  // Strip resumen — solo muestra el total global
+  strip.innerHTML =
+    '<div class="deuda-strip-total">' +
+      '<div class="ds-label">Total adeudado</div>' +
+      '<div class="ds-val">' + fmtFull(totalDeuda) + '</div>' +
+    '</div>';
+
+  // Lista: siempre las 10 categorías fijas
+  lista.innerHTML = "";
+
+  Object.keys(CATS_DEUDA).forEach(function(cat) {
+    // Deudas de esta categoría
+    var deudas_cat = allDeudas.filter(function(d){ return d.categoria === cat; })
+      .sort(function(a,b){ return b.timestamp - a.timestamp; });
+
+    var totalCat = porCat[cat] || 0;
+    var hayDeudas = deudas_cat.length > 0;
+
+    var card = document.createElement("div");
+    card.className = "deuda-cat-card" + (totalCat > 0 ? " deuda-cat-activa" : " deuda-cat-vacia");
+
+    // Header siempre visible
+    var headerHtml =
+      '<div class="deuda-cat-header">' +
+        '<div class="deuda-cat-nombre">' + CATS_DEUDA[cat] + '</div>' +
+        '<div class="deuda-cat-total ' + (totalCat > 0 ? "deuda-total-rojo" : "deuda-total-cero") + '">' +
+          fmtFull(totalCat) +
+        '</div>' +
+      '</div>';
+
+    // Detalle de items dentro de esta categoría
+    var itemsHtml = "";
+    if (hayDeudas) {
+      deudas_cat.forEach(function(d) {
+        var pct = d.montoOriginal > 0
+          ? Math.round((1 - d.montoActual / d.montoOriginal) * 10)
+          : 0;
+        var barColor = pct >= 75 ? "var(--green)" : pct >= 40 ? "#f0a500" : "var(--red)";
+
+        var pagosHtml = "";
+        if (d.pagos && d.pagos.length) {
+          pagosHtml = '<div class="deuda-pagos">' +
+            d.pagos.map(function(p) {
+              return '<span class="deuda-pago-chip">−' + fmtM(p.monto) + ' · ' + (p.fecha || "") + '</span>';
+            }).join("") +
+          '</div>';
+        }
+
+        itemsHtml +=
+          '<div class="deuda-item">' +
+            '<div class="deuda-item-top">' +
+              '<div class="deuda-item-left">' +
+                (d.descripcion ? '<div class="deuda-desc">' + d.descripcion + '</div>' : '') +
+                '<div class="deuda-fecha">Registrada: ' + (d.fecha || "") + '</div>' +
+              '</div>' +
+              '<div class="deuda-item-right">' +
+                '<div class="deuda-monto-orig">Original: ' + fmtFull(d.montoOriginal) + '</div>' +
+                '<div class="deuda-monto-actual">' + fmtFull(d.montoActual) + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="deuda-bar-bg"><div class="deuda-bar-fill" style="width:' + pct + '%;background:' + barColor + '"></div></div>' +
+            '<div class="deuda-bar-label">' + pct + '% abonado</div>' +
+            pagosHtml +
+            '<div class="deuda-actions">' +
+              '<button class="deuda-btn-abonar" data-id="' + d._id + '" data-monto="' + d.montoActual + '">💳 Abonar</button>' +
+              '<button class="deuda-btn-del" data-id="' + d._id + '">✕</button>' +
+            '</div>' +
+          '</div>';
+      });
+    }
+
+    card.innerHTML = headerHtml + (itemsHtml ? '<div class="deuda-items-wrap">' + itemsHtml + '</div>' : '');
+    lista.appendChild(card);
+  });
+
+  // Listeners
+  lista.querySelectorAll(".deuda-btn-abonar").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      abonarDeuda(btn.getAttribute("data-id"), parseFloat(btn.getAttribute("data-monto")));
+    });
+  });
+  lista.querySelectorAll(".deuda-btn-del").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      eliminarDeuda(btn.getAttribute("data-id"));
+    });
+  });
+}
+
+function initDeudas() {
+  document.getElementById("btn-guardar-deuda").addEventListener("click", guardarDeuda);
+
+  // Listener Firebase
+  firebase.database().ref("deudas").on("value", function(snap) {
+    allDeudas = [];
+    if (snap.exists()) {
+      snap.forEach(function(child) {
+        allDeudas.push(Object.assign({ _id: child.key }, child.val()));
+      });
+    }
+    if (sectionActual === "deudas") renderDeudas();
+  });
+}
+
 // ===================== INIT =====================
 function initApp() {
   // Fecha
@@ -1401,6 +1756,7 @@ function initApp() {
   initNav();
   initObjetivosModal();
   initFacturas();
+  initDeudas();
   initSemanal();
   initToggleParticipacion();
   initToggleEgresos();

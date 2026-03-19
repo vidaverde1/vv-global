@@ -1669,6 +1669,235 @@ body {
   font-weight: 700;
 }
 
+/* ===================== DEUDAS ===================== */
+
+.deuda-form-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px 20px;
+  margin-bottom: 8px;
+}
+
+.deuda-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+/* Strip total */
+.deuda-resumen-strip {
+  margin-bottom: 8px;
+}
+
+.deuda-strip-total {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ds-label {
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ds-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--red);
+}
+
+/* Lista de categorías fijas */
+.deuda-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+/* Card por categoría */
+.deuda-cat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+
+.deuda-cat-activa {
+  border-left: 3px solid var(--red);
+}
+
+.deuda-cat-vacia {
+  opacity: .6;
+}
+
+.deuda-cat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+}
+
+.deuda-cat-nombre {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted2);
+}
+
+.deuda-total-rojo {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--red);
+}
+
+.deuda-total-cero {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .88rem;
+  color: var(--muted);
+}
+
+/* Items dentro de cada categoría */
+.deuda-items-wrap {
+  padding: 0;
+}
+
+.deuda-item {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.deuda-item:last-child { border-bottom: none; }
+
+.deuda-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.deuda-item-left  { flex: 1; }
+.deuda-item-right { text-align: right; flex-shrink: 0; }
+
+.deuda-desc {
+  font-size: .82rem;
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+
+.deuda-fecha {
+  font-size: .62rem;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.deuda-monto-orig {
+  font-size: .62rem;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 2px;
+}
+
+.deuda-monto-actual {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--red);
+}
+
+.deuda-bar-bg {
+  height: 4px;
+  background: var(--bg3);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 3px;
+}
+
+.deuda-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width .5s ease;
+}
+
+.deuda-bar-label {
+  font-size: .6rem;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 7px;
+}
+
+.deuda-pagos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.deuda-pago-chip {
+  font-size: .6rem;
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--green-dim);
+  color: var(--green);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.deuda-actions {
+  display: flex;
+  gap: 7px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.deuda-btn-abonar {
+  flex: 1;
+  background: var(--green-dim);
+  border: 1px solid var(--green);
+  color: var(--green);
+  border-radius: 7px;
+  padding: 7px 12px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .18s;
+}
+.deuda-btn-abonar:hover { background: var(--green); color: #000; }
+
+.deuda-btn-del {
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  border-radius: 7px;
+  padding: 7px 11px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: .78rem;
+  cursor: pointer;
+  transition: all .18s;
+}
+.deuda-btn-del:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+
+@media (max-width: 600px) {
+  .deuda-item-top   { flex-direction: column; gap: 6px; }
+  .deuda-item-right { text-align: left; }
+  .deuda-strip-total { flex-direction: column; gap: 3px; align-items: flex-start; }
+}
+
 /* ===================== SECCIÓN SEMANAL ===================== */
 .semanal-grid {
   display: grid;
@@ -1852,3 +2081,106 @@ body {
   .obj-global-card { grid-column: 1 / -1; }
   .obj-global-pct  { font-size: 1.6rem; }
 }
+
+/* ===================== MODAL CLAVE ADMIN ===================== */
+/* Agregar al final de styles/dashboard.css */
+
+.admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+}
+
+.admin-modal-overlay.hidden {
+  display: none;
+}
+
+/* Reutiliza .db-login-card del login principal */
+.admin-modal-overlay .db-login-card {
+  animation: admin-modal-in .2s ease;
+}
+
+@keyframes admin-modal-in {
+  from { opacity: 0; transform: scale(.95) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)  translateY(0); }
+}
+
+.admin-modal-cancel {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px;
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  border-radius: 9px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: .88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .2s;
+}
+.admin-modal-cancel:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* ===================== MODAL ABONO DEUDA ===================== */
+/* Agregar al final de styles/dashboard.css */
+
+.abono-modal-deuda-info {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--red);
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.abono-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.abono-total-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: .88rem;
+  color: var(--muted2);
+  font-weight: 500;
+  transition: color .2s;
+}
+.abono-total-label:hover { color: var(--text); }
+
+.abono-total-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+/* Reutiliza db-login-field para el input de monto */
+#abono-modal-monto {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 9px;
+  padding: 12px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  color: var(--text);
+  text-align: center;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color .2s, opacity .2s;
+}
+#abono-modal-monto:focus  { border-color: var(--green); }
+#abono-modal-monto:disabled { cursor: not-allowed; }
