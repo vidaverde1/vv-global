@@ -1,301 +1,304 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vida Verde - Sucursal</title>
-<link rel="stylesheet" href="styles/sucursal.css">
-<link rel="manifest" href="manifest-sucursal.json">
-<meta name="theme-color" content="#ffffff">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="VV Sucursal">
-<link rel="apple-touch-icon" href="icons/icon-sucursal-192.png">
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="config.js"></script>
-<script>
-firebase.initializeApp(VV_CONFIG.firebase);
-</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vida Verde - Sucursal</title>
+  <link rel="stylesheet" href="styles/sucursal.css">
+  <link rel="manifest" href="manifest-sucursal.json">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="VV Sucursal">
+  <link rel="apple-touch-icon" href="icons/icon-sucursal-192.png">
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="config.js"></script>
+  <script>
+    firebase.initializeApp(VV_CONFIG.firebase);
+  </script>
 </head>
+
 <body>
 
-<!-- PANTALLA 1: Selección de sucursal -->
-<div id="pantalla-seleccion">
-  <div class="sel-eyebrow">Sistema de Carga · Vida Verde</div>
-  <h1 class="sel-title">Configuración inicial</h1>
-  <p class="sel-sub">Seleccioná la sucursal de esta PC</p>
-  <div class="suc-grid" id="sucGrid"></div>
-</div>
-
-<!-- PANTALLA 1B: Clave de sucursal -->
-<div id="pantalla-clave" class="hidden">
-  <div class="clave-box">
-    <div class="sel-eyebrow">Verificación</div>
-    <h2 class="clave-title" id="clave-suc-nombre">—</h2>
-    <p class="clave-sub">Ingresá la clave de acceso</p>
-    <div class="clave-input-wrap">
-      <input type="password" id="clave-input" placeholder="••••••" autocomplete="off" maxlength="20">
-    </div>
-    <div class="clave-error hidden" id="clave-error">Clave incorrecta. Intentá de nuevo.</div>
-    <button class="btn-clave" id="btn-clave-ok">Ingresar</button>
-    <button class="btn-volver" id="btn-clave-volver">← Cambiar sucursal</button>
+  <!-- PANTALLA 1: Selección de sucursal -->
+  <div id="pantalla-seleccion">
+    <div class="sel-eyebrow">Sistema de Carga · Vida Verde</div>
+    <h1 class="sel-title">Configuración inicial</h1>
+    <p class="sel-sub">Seleccioná la sucursal de esta PC</p>
+    <div class="suc-grid" id="sucGrid"></div>
   </div>
-</div>
 
-<!-- PANTALLA 2: App principal -->
-<div id="pantalla-carga" class="hidden">
-
-  <div class="topbar">
-    <div class="topbar-left">
-      <span class="suc-badge" id="suc-badge">—</span>
-      <button class="btn-cambiar" id="btn-cambiar">⚙ Cambiar</button>
-    </div>
-    <div class="topbar-right">
-      <div class="conn-indicator" id="conn-indicator">
-        <span class="conn-dot" id="conn-dot"></span>
-        <span class="conn-label" id="conn-label">conectando...</span>
+  <!-- PANTALLA 1B: Clave de sucursal -->
+  <div id="pantalla-clave" class="hidden">
+    <div class="clave-box">
+      <div class="sel-eyebrow">Verificación</div>
+      <h2 class="clave-title" id="clave-suc-nombre">—</h2>
+      <p class="clave-sub">Ingresá la clave de acceso</p>
+      <div class="clave-input-wrap">
+        <input type="password" id="clave-input" placeholder="••••••" autocomplete="off" maxlength="20">
       </div>
-      <div class="topbar-fecha" id="fecha-hoy"></div>
+      <div class="clave-error hidden" id="clave-error">Clave incorrecta. Intentá de nuevo.</div>
+      <button class="btn-clave" id="btn-clave-ok">Ingresar</button>
+      <button class="btn-volver" id="btn-clave-volver">← Cambiar sucursal</button>
     </div>
   </div>
 
-  <div class="carga-inner">
-    <div id="firebase-error">⚠️ No se pudo conectar con Firebase. Revisá la conexión a internet.</div>
+  <!-- PANTALLA 2: App principal -->
+  <div id="pantalla-carga" class="hidden">
 
-    <!-- SALDO DE EFECTIVO -->
-    <div class="saldo-banner saldo-ok" id="saldo-efectivo">
-      <div class="saldo-left">
-        <span class="saldo-icon">💵</span>
-        <div class="saldo-texts">
-          <span class="saldo-label">Efectivo disponible en caja</span>
-          <span class="saldo-sub">Actualizado al cargar datos.</span>
-        </div>
+    <div class="topbar">
+      <div class="topbar-left">
+        <span class="suc-badge" id="suc-badge">—</span>
+        <button class="btn-cambiar" id="btn-cambiar">⚙ Cambiar</button>
       </div>
-      <div class="saldo-right">
-        <span class="saldo-signo" id="saldo-signo">+</span>
-        <span class="saldo-val" id="saldo-efectivo-val">calculando...</span>
+      <div class="topbar-right">
+        <div class="conn-indicator" id="conn-indicator">
+          <span class="conn-dot" id="conn-dot"></span>
+          <span class="conn-label" id="conn-label">conectando...</span>
+        </div>
+        <div class="topbar-fecha" id="fecha-hoy"></div>
       </div>
     </div>
 
-    <div class="layout">
-      <!-- COLUMNA IZQUIERDA: tabs -->
-      <div class="form-col">
-        <div class="tabs">
-          <button class="tab active" data-tab="ventas">💰 Ventas</button>
-          <button class="tab" data-tab="movimientos">↕ Movimientos</button>
-          <button class="tab" data-tab="merma">📦 Merma</button>
-          <button class="tab" data-tab="cierre">🔒 Cierre</button>
-        </div>
+    <div class="carga-inner">
+      <div id="firebase-error">⚠️ No se pudo conectar con Firebase. Revisá la conexión a internet.</div>
 
-        <!-- TAB VENTAS -->
-        <div class="tab-panel active" id="tab-ventas">
-          <div class="form-card">
-            <div class="section-label ing">Medios de cobro</div>
-            <div id="fields-ventas"></div>
-            <div class="nota-wrap">
-              <label>Nota (opcional)</label>
-              <textarea id="nota-ventas" placeholder="Observaciones del día..."></textarea>
-            </div>
-            <button class="btn-guardar" id="btn-guardar-ventas">Guardar Ventas</button>
+      <!-- SALDO DE EFECTIVO -->
+      <div class="saldo-banner saldo-ok" id="saldo-efectivo">
+        <div class="saldo-left">
+          <span class="saldo-icon">💵</span>
+          <div class="saldo-texts">
+            <span class="saldo-label">Efectivo disponible en caja</span>
+            <span class="saldo-sub">Actualizado al cargar datos.</span>
           </div>
         </div>
+        <div class="saldo-right">
+          <span class="saldo-signo" id="saldo-signo">+</span>
+          <span class="saldo-val" id="saldo-efectivo-val">calculando...</span>
+        </div>
+      </div>
 
-        <!-- TAB MOVIMIENTOS -->
-        <div class="tab-panel hidden" id="tab-movimientos">
-          <div class="form-card">
-            <div class="section-label mov">Agregar movimiento</div>
-            <div class="mov-tipo-row">
-              <button class="mov-tipo-btn active" data-tipo="egreso">↓ Egreso</button>
-              <button class="mov-tipo-btn" data-tipo="ingreso-inter">↑ Ingreso inter-sucursal</button>
+      <div class="layout">
+        <!-- COLUMNA IZQUIERDA: tabs -->
+        <div class="form-col">
+          <div class="tabs">
+            <button class="tab active" data-tab="ventas">💰 Ventas</button>
+            <button class="tab" data-tab="movimientos">↕ Movimientos</button>
+            <button class="tab" data-tab="merma">📦 Merma</button>
+            <button class="tab" data-tab="cierre">🔒 Cierre</button>
+          </div>
+
+          <!-- TAB VENTAS -->
+          <div class="tab-panel active" id="tab-ventas">
+            <div class="form-card">
+              <div class="section-label ing">Medios de cobro</div>
+              <div id="fields-ventas"></div>
+              <div class="nota-wrap">
+                <label>Nota (opcional)</label>
+                <textarea id="nota-ventas" placeholder="Observaciones del día..."></textarea>
+              </div>
+              <button class="btn-guardar" id="btn-guardar-ventas">Guardar Ventas</button>
             </div>
-            <div id="mov-campos-egreso">
+          </div>
+
+          <!-- TAB MOVIMIENTOS -->
+          <div class="tab-panel hidden" id="tab-movimientos">
+            <div class="form-card">
+              <div class="section-label mov">Agregar movimiento</div>
+              <div class="mov-tipo-row">
+                <button class="mov-tipo-btn active" data-tipo="egreso">↓ Egreso</button>
+                <button class="mov-tipo-btn" data-tipo="ingreso-inter">↑ Ingreso inter-sucursal</button>
+              </div>
+              <div id="mov-campos-egreso">
+                <div class="field-row">
+                  <label>Categoría</label>
+                  <div class="select-wrap flex1">
+                    <select id="eg-categoria">
+                      <option value="">— Seleccioná —</option>
+                      <option value="proveedores">Proveedores</option>
+                      <option value="servicios">Servicios</option>
+                      <option value="alquiler">Alquiler</option>
+                      <option value="insumos">Insumos</option>
+                      <option value="retiro">Retiro</option>
+                      <option value="otros">Otros</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div id="mov-campos-inter" class="hidden">
+                <div class="field-row">
+                  <label>Sucursal origen</label>
+                  <div class="select-wrap flex1">
+                    <select id="inter-origen">
+                      <option value="">— Seleccioná —</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
               <div class="field-row">
-                <label>Categoría</label>
+                <label>Monto</label>
+                <div class="input-wrap">
+                  <span class="prefix">$</span>
+                  <input type="number" id="mov-monto" min="0" step="1" placeholder="0">
+                </div>
+              </div>
+              <div class="field-row">
+                <label>Detalle</label>
+                <div class="detalle-wrap flex1">
+                  <input type="text" id="mov-detalle" placeholder="Descripción (opcional)">
+                </div>
+              </div>
+              <button class="btn-add-sec" id="btn-add-mov">+ Agregar a la lista</button>
+              <div class="items-lista" id="mov-lista">
+                <div class="lista-empty" id="mov-empty">Sin movimientos cargados</div>
+              </div>
+              <button class="btn-guardar" id="btn-guardar-mov">Guardar Movimientos</button>
+            </div>
+          </div>
+
+          <!-- TAB MERMA -->
+          <div class="tab-panel hidden" id="tab-merma">
+            <div class="form-card">
+              <div class="section-label merm">Registrar merma</div>
+              <div class="field-row">
+                <label>Producto</label>
+                <div class="detalle-wrap flex1">
+                  <input type="text" id="merma-producto" placeholder="Nombre del producto">
+                </div>
+              </div>
+              <div class="field-row">
+                <label>Cantidad</label>
+                <div class="input-wrap">
+                  <input type="number" id="merma-cantidad" min="1" step="1" placeholder="0" style="width:90px">
+                </div>
+              </div>
+              <div class="field-row">
+                <label>Precio unit.</label>
+                <div class="input-wrap">
+                  <span class="prefix">$</span>
+                  <input type="number" id="merma-precio" min="0" step="1" placeholder="0">
+                </div>
+              </div>
+              <div class="merma-total-preview">
+                Total estimado: <span id="merma-total-val">$0</span>
+              </div>
+              <div class="field-row">
+                <label>Motivo</label>
                 <div class="select-wrap flex1">
-                  <select id="eg-categoria">
-                    <option value="">— Seleccioná —</option>
-                    <option value="proveedores">Proveedores</option>
-                    <option value="servicios">Servicios</option>
-                    <option value="alquiler">Alquiler</option>
-                    <option value="insumos">Insumos</option>
-                    <option value="retiro">Retiro</option>
+                  <select id="merma-motivo">
+                    <option value="vencimiento">Vencimiento</option>
+                    <option value="deterioro">Deterioro</option>
+                    <option value="rotura">Rotura</option>
+                    <option value="robo">Faltante</option>
                     <option value="otros">Otros</option>
                   </select>
                 </div>
               </div>
-            </div>
-            <div id="mov-campos-inter" class="hidden">
               <div class="field-row">
-                <label>Sucursal origen</label>
-                <div class="select-wrap flex1">
-                  <select id="inter-origen">
-                    <option value="">— Seleccioná —</option>
-                  </select>
+                <label>Detalle</label>
+                <div class="detalle-wrap flex1">
+                  <input type="text" id="merma-detalle" placeholder="Observaciones adicionales (opcional)">
                 </div>
               </div>
-            </div>
-            <div class="field-row">
-              <label>Monto</label>
-              <div class="input-wrap">
-                <span class="prefix">$</span>
-                <input type="number" id="mov-monto" min="0" step="1" placeholder="0">
+              <button class="btn-add-sec" id="btn-add-merma">+ Agregar a la lista</button>
+              <div class="items-lista" id="merma-lista">
+                <div class="lista-empty" id="merma-empty">Sin ítems cargados</div>
               </div>
+              <button class="btn-guardar merm-save" id="btn-guardar-merma">Guardar Merma</button>
             </div>
-            <div class="field-row">
-              <label>Detalle</label>
-              <div class="detalle-wrap flex1">
-                <input type="text" id="mov-detalle" placeholder="Descripción (opcional)">
-              </div>
-            </div>
-            <button class="btn-add-sec" id="btn-add-mov">+ Agregar a la lista</button>
-            <div class="items-lista" id="mov-lista">
-              <div class="lista-empty" id="mov-empty">Sin movimientos cargados</div>
-            </div>
-            <button class="btn-guardar" id="btn-guardar-mov">Guardar Movimientos</button>
           </div>
-        </div>
 
-        <!-- TAB MERMA -->
-        <div class="tab-panel hidden" id="tab-merma">
-          <div class="form-card">
-            <div class="section-label merm">Registrar merma</div>
-            <div class="field-row">
-              <label>Producto</label>
-              <div class="detalle-wrap flex1">
-                <input type="text" id="merma-producto" placeholder="Nombre del producto">
-              </div>
-            </div>
-            <div class="field-row">
-              <label>Cantidad</label>
-              <div class="input-wrap">
-                <input type="number" id="merma-cantidad" min="1" step="1" placeholder="0" style="width:90px">
-              </div>
-            </div>
-            <div class="field-row">
-              <label>Precio unit.</label>
-              <div class="input-wrap">
-                <span class="prefix">$</span>
-                <input type="number" id="merma-precio" min="0" step="1" placeholder="0">
-              </div>
-            </div>
-            <div class="merma-total-preview">
-              Total estimado: <span id="merma-total-val">$0</span>
-            </div>
-            <div class="field-row">
-              <label>Motivo</label>
-              <div class="select-wrap flex1">
-                <select id="merma-motivo">
-                  <option value="vencimiento">Vencimiento</option>
-                  <option value="deterioro">Deterioro</option>
-                  <option value="rotura">Rotura</option>
-                  <option value="robo">Faltante</option>
-                  <option value="otros">Otros</option>
-                </select>
-              </div>
-            </div>
-            <div class="field-row">
-              <label>Detalle</label>
-              <div class="detalle-wrap flex1">
-                <input type="text" id="merma-detalle" placeholder="Observaciones adicionales (opcional)">
-              </div>
-            </div>
-            <button class="btn-add-sec" id="btn-add-merma">+ Agregar a la lista</button>
-            <div class="items-lista" id="merma-lista">
-              <div class="lista-empty" id="merma-empty">Sin ítems cargados</div>
-            </div>
-            <button class="btn-guardar merm-save" id="btn-guardar-merma">Guardar Merma</button>
-          </div>
-        </div>
-
-        <!-- TAB CIERRE DE CAJA -->
-        <div class="tab-panel hidden" id="tab-cierre">
-          <div class="form-card">
-            <div class="section-label cierre">🔒 Cierre de caja</div>
-            <div id="cierre-ya-hecho" class="hidden">
-              <div class="cierre-done-card">
-                <div class="cierre-done-icon">✓</div>
-                <div class="cierre-done-title">Caja cerrada hoy</div>
-                <div class="cierre-done-data" id="cierre-done-data"></div>
-              </div>
-            </div>
-            <div id="cierre-form">
-              <div class="cierre-saldo-ref">
-                <span class="cierre-ref-label">Saldo del sistema</span>
-                <span class="cierre-ref-val" id="cierre-saldo-sistema">calculando...</span>
-              </div>
-              <div class="field-row" style="margin-top:14px">
-                <label>Efectivo contado</label>
-                <div class="input-wrap">
-                  <span class="prefix">$</span>
-                  <input type="number" id="cierre-contado" min="0" step="1" placeholder="0">
+          <!-- TAB CIERRE DE CAJA -->
+          <div class="tab-panel hidden" id="tab-cierre">
+            <div class="form-card">
+              <div class="section-label cierre">🔒 Cierre de caja</div>
+              <div id="cierre-ya-hecho" class="hidden">
+                <div class="cierre-done-card">
+                  <div class="cierre-done-icon">✓</div>
+                  <div class="cierre-done-title">Caja cerrada hoy</div>
+                  <div class="cierre-done-data" id="cierre-done-data"></div>
                 </div>
               </div>
-              <div class="cierre-diferencia" id="cierre-diferencia-wrap">
-                <span class="cierre-dif-label">Diferencia</span>
-                <span class="cierre-dif-val" id="cierre-diferencia-val">—</span>
+              <div id="cierre-form">
+                <div class="cierre-saldo-ref">
+                  <span class="cierre-ref-label">Saldo del sistema</span>
+                  <span class="cierre-ref-val" id="cierre-saldo-sistema">calculando...</span>
+                </div>
+                <div class="field-row" style="margin-top:14px">
+                  <label>Efectivo contado</label>
+                  <div class="input-wrap">
+                    <span class="prefix">$</span>
+                    <input type="number" id="cierre-contado" min="0" step="1" placeholder="0">
+                  </div>
+                </div>
+                <div class="cierre-diferencia" id="cierre-diferencia-wrap">
+                  <span class="cierre-dif-label">Diferencia</span>
+                  <span class="cierre-dif-val" id="cierre-diferencia-val">—</span>
+                </div>
+                <div class="nota-wrap" style="margin-top:10px">
+                  <label>Nota (opcional)</label>
+                  <textarea id="cierre-nota" placeholder="Observaciones del cierre..."></textarea>
+                </div>
+                <button class="btn-guardar cierre-save" id="btn-guardar-cierre">🔒 Cerrar Caja</button>
               </div>
-              <div class="nota-wrap" style="margin-top:10px">
-                <label>Nota (opcional)</label>
-                <textarea id="cierre-nota" placeholder="Observaciones del cierre..."></textarea>
+            </div>
+          </div>
+
+        </div><!-- /form-col -->
+
+        <!-- COLUMNA DERECHA: resumen + objetivo -->
+        <div class="resumen-col">
+          <div class="resumen-card">
+            <div class="section-label" style="color:var(--text);border-color:var(--border2)">Resumen de hoy</div>
+            <div class="totales-grid">
+              <div class="total-box">
+                <div class="t-label">Ventas</div>
+                <div class="t-value" id="total-ing">$0</div>
               </div>
-              <button class="btn-guardar cierre-save" id="btn-guardar-cierre">🔒 Cerrar Caja</button>
+              <div class="total-box">
+                <div class="t-label">Egresos</div>
+                <div class="t-value" id="total-eg">$0</div>
+              </div>
+              <div class="total-box">
+                <div class="t-label" id="neto-label">Neto</div>
+                <div class="t-value" id="total-net">$0</div>
+              </div>
+            </div>
+            <div class="resumen-lista" id="resumen-lista">
+              <div class="empty-state">Conectando con Firebase...</div>
             </div>
           </div>
-        </div>
 
-      </div><!-- /form-col -->
-
-      <!-- COLUMNA DERECHA: resumen + objetivo -->
-      <div class="resumen-col">
-        <div class="resumen-card">
-          <div class="section-label" style="color:var(--text);border-color:var(--border2)">Resumen de hoy</div>
-          <div class="totales-grid">
-            <div class="total-box">
-              <div class="t-label">Ventas</div>
-              <div class="t-value" id="total-ing">$0</div>
+          <!-- OBJETIVO DEL MES -->
+          <div class="obj-suc-card" id="obj-suc-card">
+            <div class="obj-suc-header">
+              <span class="obj-suc-titulo">🎯 Objetivo del mes</span>
+              <span class="obj-suc-pct" id="obj-suc-pct">—</span>
             </div>
-            <div class="total-box">
-              <div class="t-label">Egresos</div>
-              <div class="t-value" id="total-eg">$0</div>
+            <div class="obj-suc-bar-bg">
+              <div class="obj-suc-bar-fill" id="obj-suc-bar-fill"></div>
             </div>
-            <div class="total-box">
-              <div class="t-label" id="neto-label">Neto</div>
-              <div class="t-value" id="total-net">$0</div>
+            <div class="obj-suc-nums">
+              <span class="obj-suc-acum" id="obj-suc-acum">—</span>
+              <span class="obj-suc-meta" id="obj-suc-meta">—</span>
             </div>
+            <div class="obj-suc-prom" id="obj-suc-prom"></div>
           </div>
-          <div class="resumen-lista" id="resumen-lista">
-            <div class="empty-state">Conectando con Firebase...</div>
-          </div>
-        </div>
+        </div><!-- /resumen-col -->
 
-        <!-- OBJETIVO DEL MES -->
-        <div class="obj-suc-card" id="obj-suc-card">
-          <div class="obj-suc-header">
-            <span class="obj-suc-titulo">🎯 Objetivo del mes</span>
-            <span class="obj-suc-pct" id="obj-suc-pct">—</span>
-          </div>
-          <div class="obj-suc-bar-bg">
-            <div class="obj-suc-bar-fill" id="obj-suc-bar-fill"></div>
-          </div>
-          <div class="obj-suc-nums">
-            <span class="obj-suc-acum" id="obj-suc-acum">—</span>
-            <span class="obj-suc-meta" id="obj-suc-meta">—</span>
-          </div>
-          <div class="obj-suc-prom" id="obj-suc-prom"></div>
-        </div>
-      </div><!-- /resumen-col -->
+      </div><!-- /layout -->
+    </div><!-- /carga-inner -->
+  </div><!-- /pantalla-carga -->
 
-    </div><!-- /layout -->
-  </div><!-- /carga-inner -->
-</div><!-- /pantalla-carga -->
-
-<div class="toast" id="toast"></div>
-<script src="js/sucursal.js"></script>
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/vv-global/js/sw.js");
-}
-</script>
+  <div class="toast" id="toast"></div>
+  <script src="js/sucursal.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/vv-global/js/sw.js");
+    }
+  </script>
 </body>
+
 </html>

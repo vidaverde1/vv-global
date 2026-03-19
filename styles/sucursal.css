@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
+/* ===================== VARIABLES ===================== */
 :root {
   --bg:        #f7f7f5;
   --surface:   #ffffff;
@@ -22,6 +23,7 @@
   --purple-bg: #7c3aed12;
 }
 
+/* ===================== RESET ===================== */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -34,7 +36,7 @@ body {
 .hidden { display: none !important; }
 .flex1  { flex: 1; }
 
-/* ===================== SELECCIÓN ===================== */
+/* ===================== PANTALLA SELECCIÓN ===================== */
 #pantalla-seleccion {
   min-height: 100vh;
   display: flex;
@@ -103,8 +105,8 @@ body {
   transform: scaleX(0);
   transition: transform .2s;
 }
-.suc-btn:hover { border-color: var(--green); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,200,83,.12); }
-.suc-btn:hover::after { transform: scaleX(1); }
+.suc-btn:hover         { border-color: var(--green); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,200,83,.12); }
+.suc-btn:hover::after  { transform: scaleX(1); }
 
 /* ===================== PANTALLA CLAVE ===================== */
 #pantalla-clave {
@@ -123,7 +125,6 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
 }
 
 .clave-title {
@@ -147,7 +148,6 @@ body {
   width: 100%;
   margin-bottom: 8px;
 }
-
 .clave-input-wrap input {
   width: 100%;
   background: var(--surface2);
@@ -214,7 +214,16 @@ body {
   top: 0;
   z-index: 10;
 }
-.topbar-left { display: flex; align-items: center; gap: 10px; }
+
+.topbar-left  { display: flex; align-items: center; gap: 10px; }
+
+.topbar-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
 .suc-badge {
   font-size: .65rem;
   font-weight: 700;
@@ -225,6 +234,7 @@ body {
   padding: 5px 12px;
   border-radius: 5px;
 }
+
 .btn-cambiar {
   background: none;
   border: 1.5px solid var(--border);
@@ -238,11 +248,46 @@ body {
   transition: all .2s;
 }
 .btn-cambiar:hover { border-color: var(--red); color: var(--red); }
+
 .topbar-fecha {
   font-family: 'JetBrains Mono', monospace;
   font-size: .72rem;
   color: var(--muted);
+  text-align: right;
 }
+
+/* ===================== INDICADOR DE CONEXIÓN ===================== */
+.conn-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.conn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background .4s;
+}
+
+.conn-online  { background: var(--green); animation: conn-pulse 2s infinite; }
+.conn-offline { background: var(--red);   animation: none; }
+
+@keyframes conn-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: .35; transform: scale(.65); }
+}
+
+.conn-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .6rem;
+  font-weight: 600;
+  letter-spacing: .5px;
+  transition: color .4s;
+}
+.conn-label-online  { color: var(--green-dk); }
+.conn-label-offline { color: var(--red); }
 
 /* ===================== LAYOUT ===================== */
 .carga-inner { padding: 18px 20px 60px; }
@@ -266,7 +311,7 @@ body {
 }
 
 /* ===================== TABS ===================== */
-.form-col { display: flex; flex-direction: column; gap: 0; }
+.form-col { display: flex; flex-direction: column; }
 
 .tabs {
   display: flex;
@@ -291,11 +336,11 @@ body {
   transition: all .2s;
   letter-spacing: .2px;
 }
-.tab:last-child { border-right: none; }
-.tab:hover { background: var(--surface2); color: var(--text); }
-.tab.active { background: var(--text); color: var(--surface); }
+.tab:last-child   { border-right: none; }
+.tab:hover        { background: var(--surface2); color: var(--text); }
+.tab.active       { background: var(--text); color: var(--surface); }
 
-.tab-panel { display: none; }
+.tab-panel        { display: none; }
 .tab-panel.active { display: block; }
 
 /* ===================== FORM CARD ===================== */
@@ -317,9 +362,10 @@ body {
   border-bottom: 1.5px solid;
   margin-bottom: 14px;
 }
-.section-label.ing  { color: var(--green-dk); border-color: var(--green); }
-.section-label.mov  { color: var(--blue);     border-color: var(--blue); }
-.section-label.merm { color: var(--amber);    border-color: var(--amber); }
+.section-label.ing    { color: var(--green-dk); border-color: var(--green); }
+.section-label.mov    { color: var(--blue);     border-color: var(--blue); }
+.section-label.merm   { color: var(--amber);    border-color: var(--amber); }
+.section-label.cierre { color: var(--purple);   border-color: var(--purple); }
 
 /* ===================== FIELDS ===================== */
 .field-row {
@@ -335,6 +381,7 @@ body {
   min-width: 82px;
 }
 
+/* Input con prefijo $ */
 .input-wrap {
   display: flex;
   align-items: center;
@@ -363,6 +410,7 @@ body {
   outline: none;
 }
 
+/* Select */
 .select-wrap {
   background: var(--surface2);
   border: 1.5px solid var(--border);
@@ -384,6 +432,7 @@ body {
   cursor: pointer;
 }
 
+/* Input de texto libre */
 .detalle-wrap {
   display: flex;
   align-items: center;
@@ -425,10 +474,8 @@ body {
   cursor: pointer;
   transition: all .2s;
 }
-.mov-tipo-btn:hover { color: var(--text); }
-.mov-tipo-btn.active.egreso-active   { background: var(--red-bg);  border-color: var(--red);  color: var(--red); }
-.mov-tipo-btn.active.inter-active    { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); }
-.mov-tipo-btn.active { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+.mov-tipo-btn:hover  { color: var(--text); }
+/* El JS aplica estilos inline para el estado activo según el tipo */
 
 /* ===================== MERMA PREVIEW ===================== */
 .merma-total-preview {
@@ -450,7 +497,7 @@ body {
   font-size: .95rem;
 }
 
-/* ===================== BOTONES ADD ===================== */
+/* ===================== BOTÓN AGREGAR ===================== */
 .btn-add-sec {
   width: 100%;
   margin-top: 10px;
@@ -579,11 +626,19 @@ body {
   cursor: pointer;
   transition: all .2s;
 }
-.btn-guardar:hover   { background: var(--green-dk); }
-.btn-guardar:disabled { opacity: .45; cursor: not-allowed; }
-.btn-guardar.merm-save:hover { background: var(--amber); color: var(--text); }
+.btn-guardar:hover              { background: var(--green-dk); }
+.btn-guardar:disabled           { opacity: .45; cursor: not-allowed; }
+.btn-guardar.merm-save:hover    { background: var(--amber); color: var(--text); }
+.btn-guardar.cierre-save        { background: var(--purple); }
+.btn-guardar.cierre-save:hover  { background: #5b21b6; }
 
-/* ===================== RESUMEN ===================== */
+/* ===================== COLUMNA RESUMEN ===================== */
+.resumen-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .resumen-card {
   background: var(--surface);
   border: 1.5px solid var(--border);
@@ -631,7 +686,7 @@ body {
   font-style: italic;
 }
 
-/* REG CARDS EN RESUMEN */
+/* ===================== REG CARDS ===================== */
 .reg-card {
   border: 1.5px solid var(--border);
   border-radius: 9px;
@@ -640,9 +695,9 @@ body {
   background: var(--surface2);
   transition: border-color .2s;
 }
-.reg-card:hover { border-color: var(--green); }
-.reg-card.merma-card { border-left: 3px solid var(--amber); }
-.reg-card.mov-card   { border-left: 3px solid var(--blue); }
+.reg-card:hover        { border-color: var(--green); }
+.reg-card.merma-card   { border-left: 3px solid var(--amber); }
+.reg-card.mov-card     { border-left: 3px solid var(--blue); }
 
 .reg-header { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
 .reg-hora {
@@ -653,6 +708,7 @@ body {
   padding: 2px 6px;
   border-radius: 4px;
 }
+
 .reg-tipo-badge {
   font-size: .58rem;
   font-weight: 700;
@@ -661,9 +717,9 @@ body {
   padding: 2px 6px;
   border-radius: 3px;
 }
-.reg-tipo-badge.ventas     { background: var(--green-bg);  color: var(--green-dk); }
-.reg-tipo-badge.movimientos { background: var(--blue-bg);  color: var(--blue); }
-.reg-tipo-badge.merma      { background: var(--amber-bg); color: var(--amber); }
+.reg-tipo-badge.ventas      { background: var(--green-bg);  color: var(--green-dk); }
+.reg-tipo-badge.movimientos { background: var(--blue-bg);   color: var(--blue); }
+.reg-tipo-badge.merma       { background: var(--amber-bg);  color: var(--amber); }
 
 .reg-nota { font-size: .72rem; color: var(--muted2); font-style: italic; }
 
@@ -711,13 +767,6 @@ body {
 .toast.error { background: var(--red);      color: #fff; }
 .toast.warn  { background: var(--amber);    color: #fff; }
 
-/* ===================== COLUMNA RESUMEN ===================== */
-.resumen-col {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
 /* ===================== OBJETIVO DEL MES ===================== */
 .obj-suc-card {
   background: var(--surface);
@@ -755,7 +804,6 @@ body {
   overflow: hidden;
   margin-bottom: 10px;
 }
-
 .obj-suc-bar-fill {
   height: 100%;
   border-radius: 3px;
@@ -768,14 +816,12 @@ body {
   align-items: baseline;
   margin-bottom: 8px;
 }
-
 .obj-suc-acum {
   font-family: 'JetBrains Mono', monospace;
   font-size: .95rem;
   font-weight: 700;
   color: var(--text);
 }
-
 .obj-suc-meta {
   font-family: 'JetBrains Mono', monospace;
   font-size: .78rem;
@@ -792,11 +838,7 @@ body {
   padding-top: 8px;
   border-top: 1px solid var(--border);
 }
-
-.obj-suc-alcanzado {
-  color: var(--green-dk);
-  font-weight: 700;
-}
+.obj-suc-alcanzado { color: var(--green-dk); font-weight: 700; }
 
 /* ===================== SALDO BANNER ===================== */
 .saldo-banner {
@@ -809,27 +851,21 @@ body {
   border: 1.5px solid;
 }
 .saldo-ok  { background: var(--green-bg); border-color: var(--green); }
-.saldo-neg { background: #e5393512;       border-color: var(--red); }
+.saldo-neg { background: var(--red-bg);   border-color: var(--red); }
 
-.saldo-left { display: flex; align-items: center; gap: 10px; }
-.saldo-icon { font-size: 1.3rem; }
-.saldo-texts { display: flex; flex-direction: column; gap: 2px; }
-.saldo-label { font-size: .78rem; font-weight: 600; color: var(--text); }
-.saldo-sub   { font-size: .62rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+.saldo-left   { display: flex; align-items: center; gap: 10px; }
+.saldo-icon   { font-size: 1.3rem; }
+.saldo-texts  { display: flex; flex-direction: column; gap: 2px; }
+.saldo-label  { font-size: .78rem; font-weight: 600; color: var(--text); }
+.saldo-sub    { font-size: .62rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
 
-.saldo-right {
-  display: flex;
-  align-items: baseline;
-  gap: 2px;
-}
-.saldo-signo { font-size: 1rem; font-weight: 700; color: var(--green-dk); font-family: 'JetBrains Mono', monospace; }
-.saldo-val   { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: 700; color: var(--green-dk); }
+.saldo-right  { display: flex; align-items: baseline; gap: 2px; }
+.saldo-signo  { font-size: 1rem; font-weight: 700; color: var(--green-dk); font-family: 'JetBrains Mono', monospace; }
+.saldo-val    { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: 700; color: var(--green-dk); }
 .saldo-neg .saldo-signo,
 .saldo-neg .saldo-val { color: var(--red); }
 
-/* ===================== CIERRE DE CAJA (SUCURSAL) ===================== */
-.section-label.cierre { color: var(--purple); border-color: var(--purple); }
-
+/* ===================== CIERRE DE CAJA ===================== */
 .cierre-saldo-ref {
   display: flex;
   justify-content: space-between;
@@ -841,12 +877,7 @@ body {
   margin-bottom: 4px;
 }
 .cierre-ref-label { font-size: .72rem; color: var(--muted2); }
-.cierre-ref-val {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: .92rem;
-  font-weight: 700;
-  color: var(--text);
-}
+.cierre-ref-val   { font-family: 'JetBrains Mono', monospace; font-size: .92rem; font-weight: 700; color: var(--text); }
 
 .cierre-diferencia {
   display: flex;
@@ -859,14 +890,7 @@ body {
   border-radius: 8px;
 }
 .cierre-dif-label { font-size: .72rem; color: var(--muted2); }
-.cierre-dif-val {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: .95rem;
-  font-weight: 700;
-}
-
-.btn-guardar.cierre-save { background: var(--purple); }
-.btn-guardar.cierre-save:hover { background: #5b21b6; }
+.cierre-dif-val   { font-family: 'JetBrains Mono', monospace; font-size: .95rem; font-weight: 700; }
 
 .cierre-done-card {
   text-align: center;
@@ -879,81 +903,11 @@ body {
 .cierre-done-title { font-size: .85rem; font-weight: 700; color: var(--green-dk); margin-bottom: 10px; }
 .cierre-done-data  { font-size: .78rem; color: var(--muted2); display: flex; flex-direction: column; gap: 4px; }
 
-@media (max-width: 700px) {
-  .resumen-col { gap: 12px; }
-}
-
-/* ===================== RESPONSIVE ===================== */
-@media (max-width: 700px) {
-  .layout { grid-template-columns: 1fr; }
-  .resumen-card { position: static; }
-  .tab { font-size: .7rem; padding: 10px 4px; }
-  .field-row { flex-wrap: wrap; }
-  .field-row label { min-width: 100%; }
-}
-
-/* ===================== INDICADOR DE CONEXIÓN ===================== */
-/* Agregar al final de styles/sucursal.css */
-
-.topbar-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.conn-indicator {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.conn-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  transition: background .4s;
-}
-
-.conn-online {
-  background: var(--green);
-  animation: conn-pulse 2s infinite;
-}
-
-.conn-offline {
-  background: var(--red);
-  animation: none;
-}
-
-@keyframes conn-pulse {
-  0%, 100% { opacity: 1;   transform: scale(1); }
-  50%       { opacity: .35; transform: scale(.65); }
-}
-
-.conn-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: .6rem;
-  font-weight: 600;
-  letter-spacing: .5px;
-  transition: color .4s;
-}
-
-.conn-label-online  { color: var(--green-dk); }
-.conn-label-offline { color: var(--red); }
-
-/* ===================== VENTAS: INPUTS ALINEADOS EN COLUMNA ===================== */
-/* Agregar al final de styles/sucursal.css */
-
-/* En el tab de ventas, todos los inputs quedan en columna alineada a la derecha */
+/* ===================== VENTAS: INPUTS ALINEADOS ===================== */
 #tab-ventas .field-row {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 10px;
   flex-wrap: nowrap;
 }
-
 #tab-ventas .field-row label {
   flex: 1;
   min-width: 0;
@@ -961,18 +915,22 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 #tab-ventas .input-wrap {
   flex-shrink: 0;
   width: 150px;
 }
+#tab-ventas .input-wrap input { width: 100%; }
 
-#tab-ventas .input-wrap input {
-  width: 100%;
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 700px) {
+  .layout       { grid-template-columns: 1fr; }
+  .resumen-col  { gap: 12px; }
+  .resumen-card { position: static; }
+  .tab          { font-size: .7rem; padding: 10px 4px; }
+  .field-row    { flex-wrap: wrap; }
+  .field-row label { min-width: 100%; }
 }
 
 @media (max-width: 400px) {
-  #tab-ventas .input-wrap {
-    width: 120px;
-  }
+  #tab-ventas .input-wrap { width: 120px; }
 }

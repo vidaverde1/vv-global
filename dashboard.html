@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,6 +20,7 @@
     firebase.initializeApp(VV_CONFIG.firebase);
   </script>
 </head>
+
 <body>
 
   <!-- PANTALLA DE LOGIN DASHBOARD -->
@@ -68,43 +70,43 @@
   <main class="main-content">
 
     <!-- MODAL CLAVE ADMIN -->
-<div id="admin-modal" class="admin-modal-overlay hidden">
-  <div class="db-login-card">
-    <div class="db-login-logo">VV<span>GLOBAL</span></div>
-    <div class="db-login-title">Acción protegida</div>
-    <div class="db-login-sub" id="admin-modal-sub">Ingresá la clave de administrador</div>
-    <div class="db-login-field">
-      <input type="password" id="admin-modal-input" placeholder="Clave admin" autocomplete="off">
-    </div>
-    <div class="db-login-error hidden" id="admin-modal-error">Clave incorrecta</div>
-    <button class="db-login-btn" id="admin-modal-btn">Confirmar</button>
-    <button class="admin-modal-cancel" id="admin-modal-cancel">Cancelar</button>
-  </div>
-</div>
-
-<!-- MODAL ABONO DEUDA -->
-<div id="abono-modal" class="admin-modal-overlay hidden">
-  <div class="db-login-card">
-    <div class="db-login-logo">VV<span>GLOBAL</span></div>
-    <div class="db-login-title">Registrar abono</div>
-    <div class="abono-modal-deuda-info" id="abono-modal-info">—</div>
-
-    <div class="abono-total-row">
-      <label class="abono-total-label">
-        <input type="checkbox" id="abono-pago-total">
-        <span>Pago total</span>
-      </label>
+    <div id="admin-modal" class="admin-modal-overlay hidden">
+      <div class="db-login-card">
+        <div class="db-login-logo">VV<span>GLOBAL</span></div>
+        <div class="db-login-title">Acción protegida</div>
+        <div class="db-login-sub" id="admin-modal-sub">Ingresá la clave de administrador</div>
+        <div class="db-login-field">
+          <input type="password" id="admin-modal-input" placeholder="Clave admin" autocomplete="off">
+        </div>
+        <div class="db-login-error hidden" id="admin-modal-error">Clave incorrecta</div>
+        <button class="db-login-btn" id="admin-modal-btn">Confirmar</button>
+        <button class="admin-modal-cancel" id="admin-modal-cancel">Cancelar</button>
+      </div>
     </div>
 
-    <div class="db-login-field" id="abono-monto-wrap">
-      <input type="number" id="abono-modal-monto" placeholder="Monto a abonar" min="0" step="1">
-    </div>
+    <!-- MODAL ABONO DEUDA -->
+    <div id="abono-modal" class="admin-modal-overlay hidden">
+      <div class="db-login-card">
+        <div class="db-login-logo">VV<span>GLOBAL</span></div>
+        <div class="db-login-title">Registrar abono</div>
+        <div class="abono-modal-deuda-info" id="abono-modal-info">—</div>
 
-    <div class="db-login-error hidden" id="abono-modal-error">Ingresá un monto válido</div>
-    <button class="db-login-btn" id="abono-modal-btn">Confirmar abono</button>
-    <button class="admin-modal-cancel" id="abono-modal-cancel">Cancelar</button>
-  </div>
-</div>
+        <div class="abono-total-row">
+          <label class="abono-total-label">
+            <input type="checkbox" id="abono-pago-total">
+            <span>Pago total</span>
+          </label>
+        </div>
+
+        <div class="db-login-field" id="abono-monto-wrap">
+          <input type="number" id="abono-modal-monto" placeholder="Monto a abonar" min="0" step="1">
+        </div>
+
+        <div class="db-login-error hidden" id="abono-modal-error">Ingresá un monto válido</div>
+        <button class="db-login-btn" id="abono-modal-btn">Confirmar abono</button>
+        <button class="admin-modal-cancel" id="abono-modal-cancel">Cancelar</button>
+      </div>
+    </div>
 
     <!-- DASHBOARD PRINCIPAL -->
     <section class="section active" id="section-home">
@@ -169,7 +171,14 @@
             <span class="semanal-total-val red" id="semanal-compras-total">—</span>
           </div>
           <table class="semanal-tabla">
-            <thead><tr><th>Semana</th><th>Facturas</th><th>Egresos</th><th>Total</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Semana</th>
+                <th>Facturas</th>
+                <th>Egresos</th>
+                <th>Total</th>
+              </tr>
+            </thead>
             <tbody id="semanal-compras-tbody"></tbody>
           </table>
         </div>
@@ -188,7 +197,14 @@
             <span class="semanal-total-val green" id="semanal-ventas-total">—</span>
           </div>
           <table class="semanal-tabla">
-            <thead><tr><th>Semana</th><th>Efectivo</th><th>Digital</th><th>Total</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Semana</th>
+                <th>Efectivo</th>
+                <th>Digital</th>
+                <th>Total</th>
+              </tr>
+            </thead>
             <tbody id="semanal-ventas-tbody"></tbody>
           </table>
         </div>
@@ -302,56 +318,56 @@
     </section>
 
     <!-- DEUDAS -->
-<section class="section" id="section-deudas">
-  <div class="section-top-row">
-    <div class="section-desc">Seguimiento de deudas y obligaciones por categoría</div>
-  </div>
+    <section class="section" id="section-deudas">
+      <div class="section-top-row">
+        <div class="section-desc">Seguimiento de deudas y obligaciones por categoría</div>
+      </div>
 
-  <!-- FORMULARIO NUEVA DEUDA -->
-  <div class="deuda-form-card">
-    <div class="block-title" style="margin-top:0">Registrar deuda</div>
-    <div class="deuda-form-grid">
-      <div class="fact-field">
-        <label>Categoría</label>
-        <div class="select-wrap-dark">
-          <select id="deuda-categoria">
-            <option value="">— Seleccioná —</option>
-            <option value="banco">Banco</option>
-            <option value="cuenta_corriente">Cuenta Corriente</option>
-            <option value="cheques">Cheques</option>
-            <option value="tarjetas">Tarjetas</option>
-            <option value="proveedores">Proveedores</option>
-            <option value="sueldos">Sueldos</option>
-            <option value="cargas_sociales">Cargas Sociales</option>
-            <option value="servicios">Servicios</option>
-            <option value="alquileres">Alquileres</option>
-            <option value="impuestos">Impuestos</option>
-          </select>
+      <!-- FORMULARIO NUEVA DEUDA -->
+      <div class="deuda-form-card">
+        <div class="block-title" style="margin-top:0">Registrar deuda</div>
+        <div class="deuda-form-grid">
+          <div class="fact-field">
+            <label>Categoría</label>
+            <div class="select-wrap-dark">
+              <select id="deuda-categoria">
+                <option value="">— Seleccioná —</option>
+                <option value="banco">Banco</option>
+                <option value="cuenta_corriente">Cuenta Corriente</option>
+                <option value="cheques">Cheques</option>
+                <option value="tarjetas">Tarjetas</option>
+                <option value="proveedores">Proveedores</option>
+                <option value="sueldos">Sueldos</option>
+                <option value="cargas_sociales">Cargas Sociales</option>
+                <option value="servicios">Servicios</option>
+                <option value="alquileres">Alquileres</option>
+                <option value="impuestos">Impuestos</option>
+              </select>
+            </div>
+          </div>
+          <div class="fact-field">
+            <label>Descripción</label>
+            <input type="text" id="deuda-descripcion" placeholder="Detalle (opcional)">
+          </div>
+          <div class="fact-field">
+            <label>Monto</label>
+            <div class="fact-monto-wrap">
+              <span class="fact-prefix">$</span>
+              <input type="number" id="deuda-monto" min="0" step="1" placeholder="0">
+            </div>
+          </div>
         </div>
+        <button class="btn-guardar-fact" id="btn-guardar-deuda">+ Registrar Deuda</button>
       </div>
-      <div class="fact-field">
-        <label>Descripción</label>
-        <input type="text" id="deuda-descripcion" placeholder="Detalle (opcional)">
-      </div>
-      <div class="fact-field">
-        <label>Monto</label>
-        <div class="fact-monto-wrap">
-          <span class="fact-prefix">$</span>
-          <input type="number" id="deuda-monto" min="0" step="1" placeholder="0">
-        </div>
-      </div>
-    </div>
-    <button class="btn-guardar-fact" id="btn-guardar-deuda">+ Registrar Deuda</button>
-  </div>
 
-  <!-- RESUMEN POR CATEGORÍA -->
-  <div class="block-title">Resumen por categoría</div>
-  <div class="deuda-resumen-strip" id="deuda-resumen-strip"></div>
+      <!-- RESUMEN POR CATEGORÍA -->
+      <div class="block-title">Resumen por categoría</div>
+      <div class="deuda-resumen-strip" id="deuda-resumen-strip"></div>
 
-  <!-- LISTA DE DEUDAS -->
-  <div class="block-title">Detalle de deudas activas</div>
-  <div class="deuda-lista" id="deuda-lista"></div>
-</section>
+      <!-- LISTA DE DEUDAS -->
+      <div class="block-title">Detalle de deudas activas</div>
+      <div class="deuda-lista" id="deuda-lista"></div>
+    </section>
 
     <!-- EGRESOS -->
     <section class="section" id="section-egresos">
@@ -401,4 +417,5 @@
     }
   </script>
 </body>
+
 </html>
