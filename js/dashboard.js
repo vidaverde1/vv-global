@@ -219,6 +219,22 @@ function pedirClaveAdmin() {
 function today()      { return new Date().toISOString().slice(0, 10); }
 function mesActual()  { return new Date().toISOString().slice(0, 7); }
 
+// Fecha operativa: antes de las 10:00 se considera que aún es el día anterior.
+// Usada en renderHome, renderCierreStrip y cualquier vista de "hoy".
+function fechaOperativa() {
+  var ahora = new Date();
+  if (ahora.getHours() < 10) {
+    var ayer = new Date(ahora);
+    ayer.setDate(ayer.getDate() - 1);
+    return ayer.toISOString().slice(0, 10);
+  }
+  return ahora.toISOString().slice(0, 10);
+}
+
+function mesOperativo() {
+  return fechaOperativa().slice(0, 7);
+}
+
 function mesAnterior() {
   var d = new Date();
   d.setDate(1);
@@ -359,7 +375,7 @@ function goToSection(sec) {
 
 // ===================== SECCIÓN: HOME =====================
 function renderHome() {
-  var fecha    = today();
+  var fecha    = fechaOperativa();
   var totalIng = 0, totalEg = 0;
   var grid     = document.getElementById("suc-grid-home");
   grid.innerHTML = "";
@@ -452,7 +468,7 @@ function renderFeed() {
 
 // ===================== SECCIÓN: CHARTS HOME =====================
 function renderChartsHome() {
-  var mes  = mesActual();
+  var mes  = mesOperativo();
   var dias = diasDeMes(mes);
 
   var mesLabel     = new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" }).toUpperCase();
@@ -494,7 +510,7 @@ function renderChartsHome() {
 
 function renderParticipacion(totMes) {
   if (!totMes) {
-    var dias = diasDeMes(mesActual());
+    var dias = diasDeMes(mesOperativo());
     totMes = SUCURSALES.map(function(suc) {
       return dias.reduce(function(a, f) { return a + sumField(f, suc, "totalIngresos"); }, 0);
     });
@@ -613,7 +629,7 @@ function calcDiasHabiles() {
 
 function renderObjetivos() {
   var obj   = getObjetivos();
-  var mes   = mesActual();
+  var mes   = mesOperativo();
   var dias  = diasDeMes(mes);
   var habil = calcDiasHabiles();
   var cont  = document.getElementById("obj-cards");
@@ -937,7 +953,7 @@ function initFacturas() {
 // ===================== SECCIÓN: EGRESOS =====================
 function renderEgresos(period) {
   periodEgresos = period;
-  var fechas  = period === "hoy" ? [today()] : diasDeMes(mesActual());
+  var fechas  = period === "hoy" ? [fechaOperativa()] : diasDeMes(mesOperativo());
   var totales = {};
   RUBROS_EG.forEach(function(r) { totales[r.id] = 0; });
 
@@ -1010,7 +1026,7 @@ function initToggleEgresos() {
 
 // ===================== SECCIÓN: MERMA =====================
 function renderMerma() {
-  var mes       = mesActual();
+  var mes       = mesOperativo();
   var fechasMes = diasDeMes(mes);
   var strip     = document.getElementById("merma-global-strip");
   var detCont   = document.getElementById("merma-detalle");
@@ -1118,7 +1134,7 @@ function renderHistorial(period) {
   periodHist = period;
   var fechas;
   if (period === "semana")   fechas = ultimosDias(7);
-  else if (period === "mes") fechas = diasDeMes(mesActual());
+  else if (period === "mes") fechas = diasDeMes(mesOperativo());
   else                       fechas = diasDeMes(mesAnterior());
 
   var tooltipBase = { backgroundColor: "#1a1a1a", borderColor: "#2a2a2a", borderWidth: 1, titleColor: "#f0f0f0", bodyColor: "#666" };
@@ -1208,7 +1224,7 @@ function semanasDelMesActual() {
 }
 
 function semanaActual() {
-  var hoy     = today();
+  var hoy     = fechaOperativa();
   var semanas = semanasDelMesActual();
   for (var i = 0; i < semanas.length; i++) {
     if (hoy >= semanas[i].desde && hoy <= semanas[i].hasta) return semanas[i];
@@ -1297,25 +1313,42 @@ function renderCierreStrip() {
   var cont     = document.getElementById("cierre-strip-home");
   var totalVal = document.getElementById("cierre-total-val");
   if (!cont) return;
-  cont.innerHTML = '<div class="empty-st" style="padding:12px 0;font-size:.78rem">Cargando cierres...</div>';
 
-  firebase.database().ref("cierres/" + today()).once("value", function(snap) {
+  var fecha = fechaOperativa();
+  cont.innerHTML = "";
+
+  // Efectivo en tiempo real: se calcula desde allData (ya actualizado por el listener de registros)
+  // Para cada sucursal: efvo ventas + ingresos inter − egresos del día operativo.
+  // Si la sucursal cerró caja, se muestra además el contado/sistema/diferencia.
+  // El banner de total siempre refleja el saldo real, no el contado del cierre.
+
+  firebase.database().ref("cierres/" + fecha).once("value", function(cierreSnap) {
     cont.innerHTML = "";
-    var totalContado = 0;
-    var algoCerrado  = false;
+    var totalEfectivo = 0;
 
     SUCURSALES.forEach(function(suc) {
+      // Calcular saldo efectivo en tiempo real desde allData
+      var efvo = 0;
+      getRegs(fecha, suc).forEach(function(r) {
+        if (r.tipo === "ventas") {
+          efvo += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
+        } else if (r.tipo === "movimientos") {
+          (r.ingresosInter || []).forEach(function(inter) { efvo += inter.monto || 0; });
+          efvo -= r.totalEgresos || 0;
+        }
+      });
+      totalEfectivo += efvo;
+
       var card = document.createElement("div");
       card.className = "cierre-dash-card";
       var c = COLORS[suc];
 
-      if (snap.exists() && snap.child(suc).exists()) {
-        var d        = snap.child(suc).val();
+      if (cierreSnap.exists() && cierreSnap.child(suc).exists()) {
+        // Sucursal cerrada: mostrar datos del cierre + saldo real
+        var d        = cierreSnap.child(suc).val();
         var difSign  = d.diferencia >= 0 ? "+" : "−";
         var difColor = d.diferencia >= 0 ? "var(--green)" : "var(--red)";
         var hora     = new Date(d.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-        totalContado += d.contado || 0;
-        algoCerrado   = true;
         card.classList.add("cierre-ok");
         card.innerHTML =
           '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
@@ -1325,17 +1358,20 @@ function renderCierreStrip() {
           '<div class="cs-row"><span class="cs-lbl">Diferencia</span><span class="cs-val" style="color:' + difColor + '">' + difSign + fmtM(Math.abs(d.diferencia)) + '</span></div>' +
           (d.nota ? '<div class="cs-nota">' + d.nota + '</div>' : '');
       } else {
+        // Sin cierre: mostrar saldo efectivo en tiempo real
+        var efvoColor = efvo >= 0 ? "var(--green)" : "var(--red)";
         card.classList.add("cierre-pendiente");
         card.innerHTML =
           '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
-          '<div class="cs-estado cs-pendiente">⏳ Sin cerrar</div>';
+          '<div class="cs-estado cs-pendiente">⏳ Sin cerrar</div>' +
+          '<div class="cs-row"><span class="cs-lbl">Efectivo</span><span class="cs-val" style="color:' + efvoColor + '">' + fmtM(efvo) + '</span></div>';
       }
       cont.appendChild(card);
     });
 
     if (totalVal) {
-      totalVal.textContent = algoCerrado ? fmtFull(totalContado) : "Sin cierres aún";
-      totalVal.style.color = algoCerrado ? "var(--green)" : "var(--muted)";
+      totalVal.textContent = fmtFull(totalEfectivo);
+      totalVal.style.color = totalEfectivo >= 0 ? "var(--green)" : "var(--red)";
     }
   });
 }

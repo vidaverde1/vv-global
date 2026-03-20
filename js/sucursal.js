@@ -76,7 +76,16 @@ function fmtObj(n) {
   return "$" + Number(n).toLocaleString("es-AR");
 }
 
-function today() { return new Date().toISOString().slice(0, 10); }
+// Antes de las 10:00 se considera que aún es el día anterior
+function fechaOperativa() {
+  var ahora = new Date();
+  if (ahora.getHours() < 10) {
+    var ayer = new Date(ahora);
+    ayer.setDate(ayer.getDate() - 1);
+    return ayer.toISOString().slice(0, 10);
+  }
+  return ahora.toISOString().slice(0, 10);
+}
 
 function showToast(msg, tipo) {
   var t = document.getElementById("toast");
@@ -294,11 +303,11 @@ function guardarVentas() {
 
   setBtn("btn-guardar-ventas", true, "Guardando...");
   firebase.database()
-    .ref("registros/" + today() + "/" + sucursalActual)
+    .ref("registros/" + fechaOperativa() + "/" + sucursalActual)
     .push({
       tipo:        "ventas",
       sucursal:    sucursalActual,
-      fecha:       today(),
+      fecha:       fechaOperativa(),
       timestamp:   Date.now(),
       ventas:      ventas,
       totalVentas: total,
@@ -428,11 +437,11 @@ function guardarMovimientos() {
 
   promesas.push(
     firebase.database()
-      .ref("registros/" + today() + "/" + sucursalActual)
+      .ref("registros/" + fechaOperativa() + "/" + sucursalActual)
       .push({
         tipo:           "movimientos",
         sucursal:       sucursalActual,
-        fecha:          today(),
+        fecha:          fechaOperativa(),
         timestamp:      Date.now(),
         egresos:        egresos,
         egresosDetalle: egresosDetalle,
@@ -445,11 +454,11 @@ function guardarMovimientos() {
   ingresosInter.forEach(function(inter) {
     promesas.push(
       firebase.database()
-        .ref("registros/" + today() + "/" + inter.origen)
+        .ref("registros/" + fechaOperativa() + "/" + inter.origen)
         .push({
           tipo:           "movimientos",
           sucursal:       inter.origen,
-          fecha:          today(),
+          fecha:          fechaOperativa(),
           timestamp:      Date.now(),
           egresos:        { "transferencia-inter": inter.monto },
           egresosDetalle: [{ cat: "transferencia-inter", monto: inter.monto, detalle: "Transferido a " + sucursalActual + (inter.detalle ? " · " + inter.detalle : "") }],
@@ -544,11 +553,11 @@ function guardarMerma() {
 
   var totalMerma = mermaTemp.reduce(function(a, m) { return a + m.total; }, 0);
   firebase.database()
-    .ref("registros/" + today() + "/" + sucursalActual)
+    .ref("registros/" + fechaOperativa() + "/" + sucursalActual)
     .push({
       tipo:       "merma",
       sucursal:   sucursalActual,
-      fecha:      today(),
+      fecha:      fechaOperativa(),
       timestamp:  Date.now(),
       items:      mermaTemp.slice(),
       totalMerma: totalMerma
@@ -584,10 +593,10 @@ function guardarCierre() {
 
   setBtn("btn-guardar-cierre", true, "Guardando...");
   firebase.database()
-    .ref("cierres/" + today() + "/" + sucursalActual)
+    .ref("cierres/" + fechaOperativa() + "/" + sucursalActual)
     .set({
       sucursal:     sucursalActual,
-      fecha:        today(),
+      fecha:        fechaOperativa(),
       timestamp:    Date.now(),
       contado:      contado,
       saldoSistema: saldoSistema,
@@ -675,7 +684,7 @@ function renderObjetivoSucursal(snapTotal) {
   } catch(e) {}
   var meta = objetivos[sucursalActual] || OBJETIVOS_DEFAULT[sucursalActual] || 0;
 
-  var mesActual = new Date().toISOString().slice(0, 7);
+  var mesActual = fechaOperativa().slice(0, 7);
   var acum = 0;
   if (snapTotal && snapTotal.exists()) {
     snapTotal.forEach(function(daySnap) {
@@ -843,7 +852,7 @@ function conectarFirebase(sucursal) {
 
   try {
     // Registros de hoy — resumen del día
-    dbRef = firebase.database().ref("registros/" + today() + "/" + sucursal);
+    dbRef = firebase.database().ref("registros/" + fechaOperativa() + "/" + sucursal);
     dbRef.on("value", function(snap) {
       registrosHoy = [];
       if (snap.exists()) {
@@ -870,7 +879,7 @@ function conectarFirebase(sucursal) {
     });
 
     // Cierre de hoy
-    cierreRef = firebase.database().ref("cierres/" + today() + "/" + sucursal);
+    cierreRef = firebase.database().ref("cierres/" + fechaOperativa() + "/" + sucursal);
     cierreRef.on("value", function(snap) { renderCierre(snap); });
 
     // Indicador de conexión
