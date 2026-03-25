@@ -88,6 +88,7 @@
             <button class="tab" data-tab="movimientos">↕ Movimientos</button>
             <button class="tab" data-tab="merma">📦 Merma</button>
             <button class="tab" data-tab="cierre">🔒 Cierre</button>
+            <button class="tab" data-tab="historial">📋 Historial</button>
           </div>
 
           <!-- TAB VENTAS -->
@@ -262,6 +263,16 @@
             <div class="obj-suc-prom" id="obj-suc-prom"></div>
           </div>
 
+          <!-- TAB HISTORIAL -->
+          <div class="tab-panel hidden" id="tab-historial">
+            <div class="form-card">
+              <div class="section-label" style="color:var(--muted2);border-color:var(--border2)">Últimos 3 días hábiles</div>
+              <div id="historial-lista">
+                <div class="empty-state">Cargando historial...</div>
+              </div>
+            </div>
+          </div>
+
         </div><!-- /form-col -->
 
         <!-- COLUMNA DERECHA: resumen -->
@@ -291,6 +302,17 @@
       </div><!-- /layout -->
     </div><!-- /carga-inner -->
   </div><!-- /pantalla-carga -->
+
+  <!-- MODAL EDITAR REGISTRO -->
+  <div id="editar-modal" class="admin-modal-overlay hidden">
+    <div class="db-login-card" style="max-width:400px;text-align:left">
+      <div class="db-login-logo" style="text-align:center">VV<span>GLOBAL</span></div>
+      <div class="db-login-title" id="editar-modal-titulo" style="text-align:center">Editar registro</div>
+      <div id="editar-modal-cuerpo" style="margin:16px 0"></div>
+      <button class="db-login-btn" id="editar-modal-btn">Guardar cambios</button>
+      <button class="admin-modal-cancel" id="editar-modal-cancel">Cancelar</button>
+    </div>
+  </div>
 
   <div class="toast" id="toast"></div>
   <script src="js/sucursal.js"></script>

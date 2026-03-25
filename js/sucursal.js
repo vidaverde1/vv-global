@@ -40,16 +40,15 @@ var AUTH_SUC_DURACION = 8 * 60 * 60 * 1000; // 8 horas
 // ===================== ESTADO =====================
 var sucursalActual  = localStorage.getItem(STORAGE_KEY) || null;
 var registrosHoy    = [];
+var registrosHist   = {}; // { "YYYY-MM-DD": [regs] } para el historial
 var movimientosTemp = [];
 var mermaTemp       = [];
 var tipoMovActual   = "egreso";
 var dbRef           = null;
 var saldoRef        = null;
 var cierreRef       = null;
-var cierreAyerRef   = null; // cierre del día anterior — base del saldo efectivo
-var connRef         = null; // ref para el indicador de conexión
+var connRef         = null;
 var saldoSistema    = 0;
-var saldoCierreAyer = 0;    // contado del cierre de ayer (0 si no existe)
 
 // ===================== AUTH =====================
 function sucAuthValida(nombre) {
@@ -242,17 +241,17 @@ function limpiarTodo() {
 function cambiarSucursal() {
   if (!confirm("¿Seguro que querés cambiar la sucursal?\nEsto borrará la configuración guardada.")) return;
 
-  if (dbRef)         { dbRef.off();         dbRef         = null; }
-  if (saldoRef)      { saldoRef.off();      saldoRef      = null; }
-  if (cierreRef)     { cierreRef.off();     cierreRef     = null; }
-  if (cierreAyerRef) { cierreAyerRef.off(); cierreAyerRef = null; }
-  if (connRef)       { connRef.off();       connRef       = null; }
+  if (dbRef)    { dbRef.off();    dbRef    = null; }
+  if (saldoRef) { saldoRef.off(); saldoRef = null; }
+  if (cierreRef){ cierreRef.off();cierreRef= null; }
+  if (connRef)  { connRef.off();  connRef  = null; }
 
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(AUTH_SUC_KEY);
   sucursalActual  = null;
   movimientosTemp = [];
   mermaTemp       = [];
+  registrosHist   = {};
   saldoSistema    = 0;
 
   document.getElementById("pantalla-carga").classList.add("hidden");
@@ -274,6 +273,7 @@ function initTabs() {
       var panel = document.getElementById("tab-" + target);
       panel.classList.remove("hidden");
       panel.classList.add("active");
+      if (target === "historial") renderHistorialSucursal();
     });
   });
 }
@@ -647,28 +647,25 @@ function renderCierre(cierreSnap) {
 
 // ===================== SALDO DE EFECTIVO =====================
 
-// Calcula los movimientos de efectivo del día operativo para esta sucursal.
-// Fórmula completa: contado del cierre de ayer (saldoCierreAyer) + resultado de esta función.
-// Todos los ingresos y egresos son en efectivo.
+// Efectivo acumulativo: suma TODOS los registros históricos de la sucursal.
+// ventas en efectivo + ingresos inter − todos los egresos. No se reinicia nunca.
 function calcularSaldoDesdeSnap(snapTotal) {
-  var fecha = fechaOperativa();
   var saldo = 0;
   if (!snapTotal || !snapTotal.exists()) return saldo;
 
-  var daySnap = snapTotal.child(fecha);
-  if (!daySnap.exists()) return saldo;
-
-  var sucSnap = daySnap.child(sucursalActual);
-  if (!sucSnap.exists()) return saldo;
-
-  sucSnap.forEach(function(regSnap) {
-    var r = regSnap.val();
-    if (r.tipo === "ventas") {
-      saldo += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
-    } else if (r.tipo === "movimientos") {
-      saldo += r.totalIngInter || 0;
-      saldo -= r.totalEgresos  || 0;
-    }
+  snapTotal.forEach(function(daySnap) {
+    var sucSnap = daySnap.child(sucursalActual);
+    if (!sucSnap.exists()) return;
+    sucSnap.forEach(function(regSnap) {
+      var r = regSnap.val();
+      if (r.esEspejoInter) return; // ignorar registros espejo
+      if (r.tipo === "ventas") {
+        saldo += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
+      } else if (r.tipo === "movimientos") {
+        saldo += r.totalIngInter || 0;
+        saldo -= r.totalEgresos  || 0;
+      }
+    });
   });
   return saldo;
 }
@@ -767,6 +764,11 @@ function renderResumen() {
   registrosHoy.slice().reverse().forEach(function(reg) {
     var card = document.createElement("div");
     var hora = new Date(reg.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+    var acciones =
+      '<div class="reg-acciones">' +
+        '<button class="reg-btn-edit" data-id="' + reg.id + '">✎</button>' +
+        '<button class="reg-btn-del"  data-id="' + reg.id + '">✕</button>' +
+      '</div>';
 
     if (reg.tipo === "ventas") {
       sumVentas += reg.totalVentas || 0;
@@ -780,6 +782,7 @@ function renderResumen() {
           '<span class="reg-hora">' + hora + '</span>' +
           '<span class="reg-tipo-badge ventas">Ventas</span>' +
           (reg.nota ? '<span class="reg-nota">' + reg.nota + '</span>' : '') +
+          acciones +
         '</div>' +
         '<div class="reg-detalles">' + chips + '</div>' +
         '<div class="reg-totales"><span class="ing-tot">+' + fmt(reg.totalVentas) + '</span></div>';
@@ -802,6 +805,7 @@ function renderResumen() {
         '<div class="reg-header">' +
           '<span class="reg-hora">' + hora + '</span>' +
           '<span class="reg-tipo-badge movimientos">Movimientos</span>' +
+          acciones +
         '</div>' +
         '<div class="reg-detalles">' + egChips + intChips + '</div>' +
         '<div class="reg-totales">' + tots + '</div>';
@@ -815,16 +819,32 @@ function renderResumen() {
         '<div class="reg-header">' +
           '<span class="reg-hora">' + hora + '</span>' +
           '<span class="reg-tipo-badge merma">Merma</span>' +
+          acciones +
         '</div>' +
         '<div class="reg-detalles">' + mChips + '</div>' +
         '<div class="reg-totales"><span class="merm-tot">' + fmt(reg.totalMerma) + '</span></div>';
 
     } else {
       card.className = "reg-card";
-      card.innerHTML = '<div class="reg-header"><span class="reg-hora">' + hora + '</span></div>';
+      card.innerHTML = '<div class="reg-header"><span class="reg-hora">' + hora + '</span>' + acciones + '</div>';
     }
 
     lista.appendChild(card);
+  });
+
+  // Listeners eliminar / editar
+  lista.querySelectorAll(".reg-btn-del").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var id = btn.getAttribute("data-id");
+      eliminarRegistro(id);
+    });
+  });
+  lista.querySelectorAll(".reg-btn-edit").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var id  = btn.getAttribute("data-id");
+      var reg = registrosHoy.find(function(r) { return r.id === id; });
+      if (reg) abrirModalEditar(reg);
+    });
   });
 
   var neto = sumVentas + sumIngInter - sumEgresos;
@@ -835,15 +855,93 @@ function renderResumen() {
   document.getElementById("neto-label").textContent = neto >= 0 ? "Neto +" : "Neto −";
 }
 
+// ===================== ELIMINAR / EDITAR REGISTRO =====================
+function eliminarRegistro(id) {
+  if (!confirm("¿Eliminar este registro? Esta acción no se puede deshacer.")) return;
+  firebase.database()
+    .ref("registros/" + fechaOperativa() + "/" + sucursalActual + "/" + id)
+    .remove()
+    .then(function() { showToast("Registro eliminado.", "warn"); })
+    .catch(function(e) { showToast("Error al eliminar.", "error"); console.error(e); });
+}
+
+function abrirModalEditar(reg) {
+  var overlay = document.getElementById("editar-modal");
+  var titulo  = document.getElementById("editar-modal-titulo");
+  var cuerpo  = document.getElementById("editar-modal-cuerpo");
+  var btnOk   = document.getElementById("editar-modal-btn");
+  var btnCan  = document.getElementById("editar-modal-cancel");
+
+  overlay.classList.remove("hidden");
+  titulo.textContent = reg.tipo === "ventas" ? "Editar ventas"
+    : reg.tipo === "movimientos" ? "Editar movimientos"
+    : reg.tipo === "merma" ? "Editar merma" : "Editar registro";
+
+  cuerpo.innerHTML = "";
+
+  if (reg.tipo === "ventas") {
+    RUBROS_VENTAS.forEach(function(r) {
+      var val = (reg.ventas && reg.ventas[r.id]) ? reg.ventas[r.id] : "";
+      var row = document.createElement("div");
+      row.className = "field-row";
+      row.innerHTML =
+        '<label>' + r.label + '</label>' +
+        '<div class="input-wrap"><span class="prefix">$</span>' +
+        '<input type="number" id="edit-v-' + r.id + '" min="0" step="1" value="' + val + '" placeholder="0"></div>';
+      cuerpo.appendChild(row);
+    });
+    var notaRow = document.createElement("div");
+    notaRow.className = "nota-wrap";
+    notaRow.innerHTML = '<label>Nota (opcional)</label><textarea id="edit-nota">' + (reg.nota || "") + '</textarea>';
+    cuerpo.appendChild(notaRow);
+
+    function confirmarVentas() {
+      var ventas = {};
+      RUBROS_VENTAS.forEach(function(r) {
+        var v = parseFloat(document.getElementById("edit-v-" + r.id).value) || 0;
+        if (v > 0) ventas[r.id] = v;
+      });
+      var total = Object.values(ventas).reduce(function(a,b){return a+b;},0);
+      if (!total) { showToast("Ingresá al menos un monto.", "error"); return; }
+      firebase.database()
+        .ref("registros/" + fechaOperativa() + "/" + sucursalActual + "/" + reg.id)
+        .update({ ventas: ventas, totalVentas: total, nota: document.getElementById("edit-nota").value.trim() })
+        .then(function() { showToast("Registro actualizado.", "ok"); cerrarModalEditar(); })
+        .catch(function(e) { showToast("Error al guardar.", "error"); console.error(e); });
+    }
+    btnOk.onclick = confirmarVentas;
+
+  } else if (reg.tipo === "merma") {
+    var infoDiv = document.createElement("div");
+    infoDiv.className = "section-desc";
+    infoDiv.style.marginBottom = "10px";
+    infoDiv.textContent = "Para editar la merma, eliminá este registro y cargá uno nuevo.";
+    cuerpo.appendChild(infoDiv);
+    btnOk.style.display = "none";
+
+  } else {
+    var infoDiv2 = document.createElement("div");
+    infoDiv2.className = "section-desc";
+    infoDiv2.style.marginBottom = "10px";
+    infoDiv2.textContent = "Para editar movimientos, eliminá este registro y cargá uno nuevo.";
+    cuerpo.appendChild(infoDiv2);
+    btnOk.style.display = "none";
+  }
+
+  function cerrarModalEditar() {
+    overlay.classList.add("hidden");
+    btnOk.style.display = "";
+    btnCan.onclick = null;
+  }
+  btnCan.onclick = cerrarModalEditar;
+}
+
 // ===================== INDICADOR DE CONEXIÓN =====================
 function initConexion() {
   var dot   = document.getElementById("conn-dot");
   var label = document.getElementById("conn-label");
   if (!dot || !label) return;
-
-  // Desconectar listener anterior si existe
   if (connRef) { connRef.off(); connRef = null; }
-
   connRef = firebase.database().ref(".info/connected");
   connRef.on("value", function(snap) {
     var online    = snap.val() === true;
@@ -853,13 +951,93 @@ function initConexion() {
   });
 }
 
+// ===================== HISTORIAL (ÚLTIMOS 3 DÍAS HÁBILES) =====================
+function ultimos3DiasHabiles() {
+  var dias = [];
+  var d = new Date(fechaOperativa() + "T12:00:00");
+  while (dias.length < 3) {
+    d.setDate(d.getDate() - 1);
+    if (d.getDay() !== 0) dias.push(d.toISOString().slice(0, 10)); // saltar domingos
+  }
+  return dias; // más reciente primero
+}
+
+function renderHistorialSucursal() {
+  var cont = document.getElementById("historial-lista");
+  if (!cont) return;
+  cont.innerHTML = "";
+
+  var dias = ultimos3DiasHabiles();
+  var hayAlgo = false;
+
+  dias.forEach(function(fecha) {
+    var regs = (registrosHist[fecha] || []).filter(function(r) { return !r.esEspejoInter; });
+    if (!regs.length) return;
+    hayAlgo = true;
+
+    var secTitle = document.createElement("div");
+    secTitle.className = "hist-fecha-titulo";
+    secTitle.textContent = new Date(fecha + "T12:00:00").toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+    cont.appendChild(secTitle);
+
+    regs.slice().reverse().forEach(function(reg) {
+      var card = document.createElement("div");
+      var hora = new Date(reg.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+
+      if (reg.tipo === "ventas") {
+        card.className = "reg-card";
+        var chips = Object.entries(reg.ventas || {}).map(function(e) {
+          var rub = RUBROS_VENTAS.find(function(r) { return r.id === e[0]; });
+          return '<span class="det-item ing">' + (rub ? rub.label : e[0]) + ': ' + fmt(e[1]) + '</span>';
+        }).join("");
+        card.innerHTML =
+          '<div class="reg-header"><span class="reg-hora">' + hora + '</span><span class="reg-tipo-badge ventas">Ventas</span>' + (reg.nota ? '<span class="reg-nota">' + reg.nota + '</span>' : '') + '</div>' +
+          '<div class="reg-detalles">' + chips + '</div>' +
+          '<div class="reg-totales"><span class="ing-tot">+' + fmt(reg.totalVentas) + '</span></div>';
+
+      } else if (reg.tipo === "movimientos") {
+        card.className = "reg-card mov-card";
+        var egChips = (reg.egresosDetalle || []).map(function(eg) {
+          var lbl = eg.cat === "transferencia-inter" ? "→ Transferencia" : (CATS_EG[eg.cat] || eg.cat);
+          return '<span class="det-item eg">' + lbl + (eg.detalle ? " · " + eg.detalle : "") + ': ' + fmt(eg.monto) + '</span>';
+        }).join("");
+        var intChips = (reg.ingresosInter || []).map(function(inter) {
+          return '<span class="det-item inter">↑ ' + inter.origen + (inter.detalle ? " · " + inter.detalle : "") + ': ' + fmt(inter.monto) + '</span>';
+        }).join("");
+        var tots = "";
+        if (reg.totalEgresos)  tots += '<span class="eg-tot">-'  + fmt(reg.totalEgresos)  + '</span>';
+        if (reg.totalIngInter) tots += '<span class="ing-tot">+' + fmt(reg.totalIngInter) + ' (inter)</span>';
+        card.innerHTML =
+          '<div class="reg-header"><span class="reg-hora">' + hora + '</span><span class="reg-tipo-badge movimientos">Movimientos</span></div>' +
+          '<div class="reg-detalles">' + egChips + intChips + '</div>' +
+          '<div class="reg-totales">' + tots + '</div>';
+
+      } else if (reg.tipo === "merma") {
+        card.className = "reg-card merma-card";
+        var mChips = (reg.items || []).map(function(m) {
+          return '<span class="det-item merm">' + m.cantidad + '× ' + m.producto + ': ' + fmt(m.total) + '</span>';
+        }).join("");
+        card.innerHTML =
+          '<div class="reg-header"><span class="reg-hora">' + hora + '</span><span class="reg-tipo-badge merma">Merma</span></div>' +
+          '<div class="reg-detalles">' + mChips + '</div>' +
+          '<div class="reg-totales"><span class="merm-tot">' + fmt(reg.totalMerma) + '</span></div>';
+      }
+
+      cont.appendChild(card);
+    });
+  });
+
+  if (!hayAlgo) {
+    cont.innerHTML = '<div class="empty-state">Sin registros en los últimos 3 días.</div>';
+  }
+}
+
 // ===================== FIREBASE =====================
 function conectarFirebase(sucursal) {
-  if (dbRef)         { dbRef.off();         dbRef         = null; }
-  if (saldoRef)      { saldoRef.off();      saldoRef      = null; }
-  if (cierreRef)     { cierreRef.off();     cierreRef     = null; }
-  if (cierreAyerRef) { cierreAyerRef.off(); cierreAyerRef = null; }
-  if (connRef)       { connRef.off();       connRef       = null; }
+  if (dbRef)    { dbRef.off();    dbRef    = null; }
+  if (saldoRef) { saldoRef.off(); saldoRef = null; }
+  if (cierreRef){ cierreRef.off();cierreRef= null; }
+  if (connRef)  { connRef.off();  connRef  = null; }
 
   try {
     // Registros de hoy — resumen del día
@@ -879,38 +1057,33 @@ function conectarFirebase(sucursal) {
       document.getElementById("resumen-lista").innerHTML = '<div class="empty-state">Sin conexión a Firebase.</div>';
     });
 
-    // Saldo histórico + objetivo
+    // Saldo acumulativo histórico + objetivo
     saldoRef = firebase.database().ref("registros");
     saldoRef.on("value", function(snapTotal) {
-      saldoSistema = saldoCierreAyer + calcularSaldoDesdeSnap(snapTotal);
+      // Historial: cargar últimos 3 días hábiles
+      var diasHist = ultimos3DiasHabiles();
+      registrosHist = {};
+      diasHist.forEach(function(fecha) {
+        var daySnap = snapTotal.child(fecha);
+        var sucSnap = daySnap.child(sucursal);
+        var regs = [];
+        if (sucSnap.exists()) {
+          sucSnap.forEach(function(child) {
+            regs.push(Object.assign({ id: child.key }, child.val()));
+          });
+        }
+        registrosHist[fecha] = regs;
+      });
+      if (document.getElementById("tab-historial") &&
+          document.getElementById("tab-historial").classList.contains("active")) {
+        renderHistorialSucursal();
+      }
+
+      saldoSistema = calcularSaldoDesdeSnap(snapTotal);
       actualizarSaldoBanner(saldoSistema);
       var sistemaEl = document.getElementById("cierre-saldo-sistema");
       if (sistemaEl) sistemaEl.textContent = fmt(saldoSistema);
       renderObjetivoSucursal(snapTotal);
-    });
-
-    // Cierre del día anterior — base del saldo efectivo
-    // Calcula la fecha de ayer respecto al día operativo
-    var fechaOp   = fechaOperativa();
-    var dOp       = new Date(fechaOp + "T12:00:00");
-    var dAyer     = new Date(dOp);
-    dAyer.setDate(dAyer.getDate() - 1);
-    var fechaAyer = dAyer.toISOString().slice(0, 10);
-
-    cierreAyerRef = firebase.database().ref("cierres/" + fechaAyer + "/" + sucursal);
-    cierreAyerRef.on("value", function(snap) {
-      saldoCierreAyer = (snap.exists() && snap.val().contado != null)
-        ? snap.val().contado
-        : 0;
-      // Recalcular saldo total con la nueva base
-      // saldoRef ya tiene el snap, pero necesitamos volver a disparar el cálculo.
-      // Lo más simple: leer registros una vez para recalcular sincrónicamente.
-      firebase.database().ref("registros").once("value", function(snapTotal) {
-        saldoSistema = saldoCierreAyer + calcularSaldoDesdeSnap(snapTotal);
-        actualizarSaldoBanner(saldoSistema);
-        var sistemaEl = document.getElementById("cierre-saldo-sistema");
-        if (sistemaEl) sistemaEl.textContent = fmt(saldoSistema);
-      });
     });
 
     // Cierre de hoy
