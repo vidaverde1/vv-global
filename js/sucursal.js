@@ -38,17 +38,19 @@ var AUTH_SUC_KEY      = "vvglobal_suc_auth";
 var AUTH_SUC_DURACION = 8 * 60 * 60 * 1000; // 8 horas
 
 // ===================== ESTADO =====================
-var sucursalActual  = localStorage.getItem(STORAGE_KEY) || null;
-var registrosHoy    = [];
-var registrosHist   = {}; // { "YYYY-MM-DD": [regs] } para el historial
-var movimientosTemp = [];
-var mermaTemp       = [];
-var tipoMovActual   = "egreso";
-var dbRef           = null;
-var saldoRef        = null;
-var cierreRef       = null;
-var connRef         = null;
-var saldoSistema    = 0;
+var sucursalActual    = localStorage.getItem(STORAGE_KEY) || null;
+var registrosHoy      = [];
+var registrosHist     = {}; // { "YYYY-MM-DD": [regs] } para el historial
+var movimientosTemp   = [];
+var mermaTemp         = [];
+var tipoMovActual     = "egreso";
+var dbRef             = null;
+var saldoRef          = null;
+var cierreRef         = null;  // cierre de hoy (para mostrar done-card)
+var cierresAllRef     = null;  // todos los cierres — para encontrar el último
+var connRef           = null;
+var saldoSistema      = 0;
+var saldoCierreUltimo = 0;     // contado del último cierre registrado
 
 // ===================== AUTH =====================
 function sucAuthValida(nombre) {
@@ -241,10 +243,11 @@ function limpiarTodo() {
 function cambiarSucursal() {
   if (!confirm("¿Seguro que querés cambiar la sucursal?\nEsto borrará la configuración guardada.")) return;
 
-  if (dbRef)    { dbRef.off();    dbRef    = null; }
-  if (saldoRef) { saldoRef.off(); saldoRef = null; }
-  if (cierreRef){ cierreRef.off();cierreRef= null; }
-  if (connRef)  { connRef.off();  connRef  = null; }
+  if (dbRef)         { dbRef.off();         dbRef         = null; }
+  if (saldoRef)      { saldoRef.off();      saldoRef      = null; }
+  if (cierreRef)     { cierreRef.off();     cierreRef     = null; }
+  if (cierresAllRef) { cierresAllRef.off(); cierresAllRef = null; }
+  if (connRef)       { connRef.off();       connRef       = null; }
 
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(AUTH_SUC_KEY);
@@ -273,7 +276,6 @@ function initTabs() {
       var panel = document.getElementById("tab-" + target);
       panel.classList.remove("hidden");
       panel.classList.add("active");
-      if (target === "historial") renderHistorialSucursal();
     });
   });
 }
@@ -647,25 +649,25 @@ function renderCierre(cierreSnap) {
 
 // ===================== SALDO DE EFECTIVO =====================
 
-// Efectivo acumulativo: suma TODOS los registros históricos de la sucursal.
-// ventas en efectivo + ingresos inter − todos los egresos. No se reinicia nunca.
+// Movimientos del día operativo para esta sucursal.
+// La base (saldoCierreUltimo) se suma en conectarFirebase al recibir el snap de cierres.
 function calcularSaldoDesdeSnap(snapTotal) {
+  var fecha = fechaOperativa();
   var saldo = 0;
   if (!snapTotal || !snapTotal.exists()) return saldo;
 
-  snapTotal.forEach(function(daySnap) {
-    var sucSnap = daySnap.child(sucursalActual);
-    if (!sucSnap.exists()) return;
-    sucSnap.forEach(function(regSnap) {
-      var r = regSnap.val();
-      if (r.esEspejoInter) return; // ignorar registros espejo
-      if (r.tipo === "ventas") {
-        saldo += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
-      } else if (r.tipo === "movimientos") {
-        saldo += r.totalIngInter || 0;
-        saldo -= r.totalEgresos  || 0;
-      }
-    });
+  var sucSnap = snapTotal.child(fecha).child(sucursalActual);
+  if (!sucSnap.exists()) return saldo;
+
+  sucSnap.forEach(function(regSnap) {
+    var r = regSnap.val();
+    if (r.esEspejoInter) return;
+    if (r.tipo === "ventas") {
+      saldo += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
+    } else if (r.tipo === "movimientos") {
+      saldo += r.totalIngInter || 0;
+      saldo -= r.totalEgresos  || 0;
+    }
   });
   return saldo;
 }
@@ -872,12 +874,23 @@ function abrirModalEditar(reg) {
   var btnOk   = document.getElementById("editar-modal-btn");
   var btnCan  = document.getElementById("editar-modal-cancel");
 
-  overlay.classList.remove("hidden");
-  titulo.textContent = reg.tipo === "ventas" ? "Editar ventas"
-    : reg.tipo === "movimientos" ? "Editar movimientos"
-    : reg.tipo === "merma" ? "Editar merma" : "Editar registro";
+  // Limpiar estado anterior
+  cuerpo.innerHTML   = "";
+  btnOk.style.display = "";
+  btnOk.onclick      = null;
+  btnCan.onclick     = null;
 
-  cuerpo.innerHTML = "";
+  function cerrar() {
+    overlay.classList.add("hidden");
+    btnOk.onclick  = null;
+    btnCan.onclick = null;
+  }
+  btnCan.onclick = cerrar;
+
+  titulo.textContent = reg.tipo === "ventas"       ? "Editar ventas"
+    : reg.tipo === "movimientos" ? "Editar movimientos"
+    : reg.tipo === "merma"       ? "Editar merma"
+    : "Editar registro";
 
   if (reg.tipo === "ventas") {
     RUBROS_VENTAS.forEach(function(r) {
@@ -895,45 +908,34 @@ function abrirModalEditar(reg) {
     notaRow.innerHTML = '<label>Nota (opcional)</label><textarea id="edit-nota">' + (reg.nota || "") + '</textarea>';
     cuerpo.appendChild(notaRow);
 
-    function confirmarVentas() {
+    btnOk.onclick = function() {
       var ventas = {};
       RUBROS_VENTAS.forEach(function(r) {
         var v = parseFloat(document.getElementById("edit-v-" + r.id).value) || 0;
         if (v > 0) ventas[r.id] = v;
       });
-      var total = Object.values(ventas).reduce(function(a,b){return a+b;},0);
+      var total = Object.values(ventas).reduce(function(a, b) { return a + b; }, 0);
       if (!total) { showToast("Ingresá al menos un monto.", "error"); return; }
       firebase.database()
         .ref("registros/" + fechaOperativa() + "/" + sucursalActual + "/" + reg.id)
         .update({ ventas: ventas, totalVentas: total, nota: document.getElementById("edit-nota").value.trim() })
-        .then(function() { showToast("Registro actualizado.", "ok"); cerrarModalEditar(); })
+        .then(function() { showToast("Registro actualizado.", "ok"); cerrar(); })
         .catch(function(e) { showToast("Error al guardar.", "error"); console.error(e); });
-    }
-    btnOk.onclick = confirmarVentas;
-
-  } else if (reg.tipo === "merma") {
-    var infoDiv = document.createElement("div");
-    infoDiv.className = "section-desc";
-    infoDiv.style.marginBottom = "10px";
-    infoDiv.textContent = "Para editar la merma, eliminá este registro y cargá uno nuevo.";
-    cuerpo.appendChild(infoDiv);
-    btnOk.style.display = "none";
+    };
 
   } else {
-    var infoDiv2 = document.createElement("div");
-    infoDiv2.className = "section-desc";
-    infoDiv2.style.marginBottom = "10px";
-    infoDiv2.textContent = "Para editar movimientos, eliminá este registro y cargá uno nuevo.";
-    cuerpo.appendChild(infoDiv2);
+    // Merma y movimientos: solo se pueden eliminar y recargar
+    var msg = document.createElement("div");
+    msg.className = "section-desc";
+    msg.style.marginBottom = "12px";
+    msg.textContent = reg.tipo === "merma"
+      ? "Para editar la merma, eliminá este registro y cargá uno nuevo."
+      : "Para editar movimientos, eliminá este registro y cargá uno nuevo.";
+    cuerpo.appendChild(msg);
     btnOk.style.display = "none";
   }
 
-  function cerrarModalEditar() {
-    overlay.classList.add("hidden");
-    btnOk.style.display = "";
-    btnCan.onclick = null;
-  }
-  btnCan.onclick = cerrarModalEditar;
+  overlay.classList.remove("hidden");
 }
 
 // ===================== INDICADOR DE CONEXIÓN =====================
@@ -1034,10 +1036,11 @@ function renderHistorialSucursal() {
 
 // ===================== FIREBASE =====================
 function conectarFirebase(sucursal) {
-  if (dbRef)    { dbRef.off();    dbRef    = null; }
-  if (saldoRef) { saldoRef.off(); saldoRef = null; }
-  if (cierreRef){ cierreRef.off();cierreRef= null; }
-  if (connRef)  { connRef.off();  connRef  = null; }
+  if (dbRef)         { dbRef.off();         dbRef         = null; }
+  if (saldoRef)      { saldoRef.off();      saldoRef      = null; }
+  if (cierreRef)     { cierreRef.off();     cierreRef     = null; }
+  if (cierresAllRef) { cierresAllRef.off(); cierresAllRef = null; }
+  if (connRef)       { connRef.off();       connRef       = null; }
 
   try {
     // Registros de hoy — resumen del día
@@ -1057,16 +1060,15 @@ function conectarFirebase(sucursal) {
       document.getElementById("resumen-lista").innerHTML = '<div class="empty-state">Sin conexión a Firebase.</div>';
     });
 
-    // Saldo acumulativo histórico + objetivo
+    // Registros históricos + saldo del día + objetivo
     saldoRef = firebase.database().ref("registros");
     saldoRef.on("value", function(snapTotal) {
-      // Historial: cargar últimos 3 días hábiles
+      // Historial: últimos 3 días hábiles
       var diasHist = ultimos3DiasHabiles();
       registrosHist = {};
       diasHist.forEach(function(fecha) {
-        var daySnap = snapTotal.child(fecha);
-        var sucSnap = daySnap.child(sucursal);
         var regs = [];
+        var sucSnap = snapTotal.child(fecha).child(sucursal);
         if (sucSnap.exists()) {
           sucSnap.forEach(function(child) {
             regs.push(Object.assign({ id: child.key }, child.val()));
@@ -1074,19 +1076,51 @@ function conectarFirebase(sucursal) {
         }
         registrosHist[fecha] = regs;
       });
-      if (document.getElementById("tab-historial") &&
-          document.getElementById("tab-historial").classList.contains("active")) {
+      if (document.getElementById("historial-lista")) {
         renderHistorialSucursal();
       }
 
-      saldoSistema = calcularSaldoDesdeSnap(snapTotal);
+      // Saldo = último cierre + movimientos de hoy
+      saldoSistema = saldoCierreUltimo + calcularSaldoDesdeSnap(snapTotal);
       actualizarSaldoBanner(saldoSistema);
       var sistemaEl = document.getElementById("cierre-saldo-sistema");
       if (sistemaEl) sistemaEl.textContent = fmt(saldoSistema);
       renderObjetivoSucursal(snapTotal);
     });
 
-    // Cierre de hoy
+    // Todos los cierres de esta sucursal — busca el último registrado
+    cierresAllRef = firebase.database().ref("cierres");
+    cierresAllRef.on("value", function(snap) {
+      var ultimoContado = 0;
+      var ultimaFecha   = "";
+      var hoy           = fechaOperativa();
+
+      if (snap.exists()) {
+        snap.forEach(function(daySnap) {
+          var fecha = daySnap.key;
+          // Solo cierres anteriores al día operativo actual
+          if (fecha >= hoy) return;
+          var sucSnap = daySnap.child(sucursal);
+          if (sucSnap.exists() && sucSnap.val().contado != null) {
+            if (fecha > ultimaFecha) {
+              ultimaFecha   = fecha;
+              ultimoContado = sucSnap.val().contado;
+            }
+          }
+        });
+      }
+
+      saldoCierreUltimo = ultimoContado;
+      // Recalcular saldo con la nueva base — disparar una lectura puntual de registros
+      firebase.database().ref("registros").once("value", function(snapTotal) {
+        saldoSistema = saldoCierreUltimo + calcularSaldoDesdeSnap(snapTotal);
+        actualizarSaldoBanner(saldoSistema);
+        var sistemaEl = document.getElementById("cierre-saldo-sistema");
+        if (sistemaEl) sistemaEl.textContent = fmt(saldoSistema);
+      });
+    });
+
+    // Cierre de hoy — solo para mostrar done-card al empleado
     cierreRef = firebase.database().ref("cierres/" + fechaOperativa() + "/" + sucursal);
     cierreRef.on("value", function(snap) { renderCierre(snap); });
 
