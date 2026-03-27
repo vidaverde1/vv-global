@@ -1327,7 +1327,7 @@ function renderCierreStrip() {
     var totalEfectivo = 0;
 
     SUCURSALES.forEach(function(suc) {
-      // Calcular saldo efectivo en tiempo real desde allData
+      // Saldo en tiempo real desde registros del día
       var efvo = 0;
       getRegs(fecha, suc).forEach(function(r) {
         if (r.tipo === "ventas") {
@@ -1337,18 +1337,18 @@ function renderCierreStrip() {
           efvo -= r.totalEgresos || 0;
         }
       });
-      totalEfectivo += efvo;
 
       var card = document.createElement("div");
       card.className = "cierre-dash-card";
       var c = COLORS[suc];
 
       if (cierreSnap.exists() && cierreSnap.child(suc).exists()) {
-        // Sucursal cerrada: mostrar datos del cierre + saldo real
+        // Sucursal cerrada: el efectivo real es el contado ingresado por el empleado
         var d        = cierreSnap.child(suc).val();
         var difSign  = d.diferencia >= 0 ? "+" : "−";
         var difColor = d.diferencia >= 0 ? "var(--green)" : "var(--red)";
         var hora     = new Date(d.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+        totalEfectivo += d.contado || 0;
         card.classList.add("cierre-ok");
         card.innerHTML =
           '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
@@ -1358,7 +1358,8 @@ function renderCierreStrip() {
           '<div class="cs-row"><span class="cs-lbl">Diferencia</span><span class="cs-val" style="color:' + difColor + '">' + difSign + fmtM(Math.abs(d.diferencia)) + '</span></div>' +
           (d.nota ? '<div class="cs-nota">' + d.nota + '</div>' : '');
       } else {
-        // Sin cierre: mostrar saldo efectivo en tiempo real
+        // Sin cierre: usar saldo calculado desde registros en tiempo real
+        totalEfectivo += efvo;
         var efvoColor = efvo >= 0 ? "var(--green)" : "var(--red)";
         card.classList.add("cierre-pendiente");
         card.innerHTML =
@@ -1632,6 +1633,20 @@ function initFirebase() {
       snap.forEach(function(child) {
         allFacturas.push(Object.assign({ _id: child.key }, child.val()));
       });
+    }
+    // Actualizar autocompletado de proveedores con nombres únicos, ordenados
+    var datalist = document.getElementById("proveedores-list");
+    if (datalist) {
+      var proveedores = [];
+      allFacturas.forEach(function(f) {
+        if (f.proveedor && proveedores.indexOf(f.proveedor) === -1) {
+          proveedores.push(f.proveedor);
+        }
+      });
+      proveedores.sort();
+      datalist.innerHTML = proveedores.map(function(p) {
+        return '<option value="' + p.replace(/"/g, '&quot;') + '">';
+      }).join("");
     }
     if (sectionActual === "facturas") renderFacturas();
   });
