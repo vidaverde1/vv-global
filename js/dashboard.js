@@ -1309,72 +1309,85 @@ function initSemanal() {
 }
 
 // ===================== CIERRE DE CAJA =====================
-function renderCierreStrip() {
+
+// Calcula el efectivo del día para una sucursal desde allData (sin cierre)
+function calcEfvoDia(fecha, suc) {
+  var efvo = 0;
+  getRegs(fecha, suc).forEach(function(r) {
+    if (r.tipo === "ventas") {
+      efvo += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
+    } else if (r.tipo === "movimientos") {
+      (r.ingresosInter || []).forEach(function(inter) { efvo += inter.monto || 0; });
+      efvo -= r.totalEgresos || 0;
+    }
+  });
+  return efvo;
+}
+
+// Busca el saldo efectivo de una sucursal para una fecha dada desde registros
+// (usado como fallback cuando no hay cierre registrado)
+function calcEfvoFecha(fecha, suc) {
+  var efvo = 0;
+  var regs = (allData[fecha] && allData[fecha][suc]) ? allData[fecha][suc] : [];
+  regs.forEach(function(r) {
+    if (r.tipo === "ventas") {
+      efvo += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
+    } else if (r.tipo === "movimientos") {
+      (r.ingresosInter || []).forEach(function(inter) { efvo += inter.monto || 0; });
+      efvo -= r.totalEgresos || 0;
+    }
+  });
+  return efvo;
+}
+
+// Recibe cierreSnap directamente — sin hacer lecturas propias de Firebase
+function renderCierreStrip(cierreSnap) {
   var cont     = document.getElementById("cierre-strip-home");
   var totalVal = document.getElementById("cierre-total-val");
   if (!cont) return;
 
   var fecha = fechaOperativa();
   cont.innerHTML = "";
+  var totalEfectivo = 0;
 
-  // Efectivo en tiempo real: se calcula desde allData (ya actualizado por el listener de registros)
-  // Para cada sucursal: efvo ventas + ingresos inter − egresos del día operativo.
-  // Si la sucursal cerró caja, se muestra además el contado/sistema/diferencia.
-  // El banner de total siempre refleja el saldo real, no el contado del cierre.
+  SUCURSALES.forEach(function(suc) {
+    var efvo = calcEfvoDia(fecha, suc);
+    var card = document.createElement("div");
+    card.className = "cierre-dash-card";
+    var c = COLORS[suc];
 
-  firebase.database().ref("cierres/" + fecha).once("value", function(cierreSnap) {
-    cont.innerHTML = "";
-    var totalEfectivo = 0;
-
-    SUCURSALES.forEach(function(suc) {
-      // Saldo en tiempo real desde registros del día
-      var efvo = 0;
-      getRegs(fecha, suc).forEach(function(r) {
-        if (r.tipo === "ventas") {
-          efvo += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
-        } else if (r.tipo === "movimientos") {
-          (r.ingresosInter || []).forEach(function(inter) { efvo += inter.monto || 0; });
-          efvo -= r.totalEgresos || 0;
-        }
-      });
-
-      var card = document.createElement("div");
-      card.className = "cierre-dash-card";
-      var c = COLORS[suc];
-
-      if (cierreSnap.exists() && cierreSnap.child(suc).exists()) {
-        // Sucursal cerrada: el efectivo real es el contado ingresado por el empleado
-        var d        = cierreSnap.child(suc).val();
-        var difSign  = d.diferencia >= 0 ? "+" : "−";
-        var difColor = d.diferencia >= 0 ? "var(--green)" : "var(--red)";
-        var hora     = new Date(d.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-        totalEfectivo += d.contado || 0;
-        card.classList.add("cierre-ok");
-        card.innerHTML =
-          '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
-          '<div class="cs-estado cs-cerrado">✓ Cerrado ' + hora + '</div>' +
-          '<div class="cs-row"><span class="cs-lbl">Contado</span><span class="cs-val cs-contado-verde">' + fmtM(d.contado) + '</span></div>' +
-          '<div class="cs-row"><span class="cs-lbl">Sistema</span><span class="cs-val">' + fmtM(d.saldoSistema) + '</span></div>' +
-          '<div class="cs-row"><span class="cs-lbl">Diferencia</span><span class="cs-val" style="color:' + difColor + '">' + difSign + fmtM(Math.abs(d.diferencia)) + '</span></div>' +
-          (d.nota ? '<div class="cs-nota">' + d.nota + '</div>' : '');
-      } else {
-        // Sin cierre: usar saldo calculado desde registros en tiempo real
-        totalEfectivo += efvo;
-        var efvoColor = efvo >= 0 ? "var(--green)" : "var(--red)";
-        card.classList.add("cierre-pendiente");
-        card.innerHTML =
-          '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
-          '<div class="cs-estado cs-pendiente">⏳ Sin cerrar</div>' +
-          '<div class="cs-row"><span class="cs-lbl">Efectivo</span><span class="cs-val" style="color:' + efvoColor + '">' + fmtM(efvo) + '</span></div>';
-      }
-      cont.appendChild(card);
-    });
-
-    if (totalVal) {
-      totalVal.textContent = fmtFull(totalEfectivo);
-      totalVal.style.color = totalEfectivo >= 0 ? "var(--green)" : "var(--red)";
+    if (cierreSnap && cierreSnap.exists() && cierreSnap.child(suc).exists()) {
+      // Sucursal cerrada: usar contado del empleado
+      var d        = cierreSnap.child(suc).val();
+      var difSign  = d.diferencia >= 0 ? "+" : "−";
+      var difColor = d.diferencia >= 0 ? "var(--green)" : "var(--red)";
+      var hora     = new Date(d.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+      totalEfectivo += d.contado || 0;
+      card.classList.add("cierre-ok");
+      card.innerHTML =
+        '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
+        '<div class="cs-estado cs-cerrado">✓ Cerrado ' + hora + '</div>' +
+        '<div class="cs-row"><span class="cs-lbl">Contado</span><span class="cs-val cs-contado-verde">' + fmtM(d.contado) + '</span></div>' +
+        '<div class="cs-row"><span class="cs-lbl">Sistema</span><span class="cs-val">' + fmtM(d.saldoSistema) + '</span></div>' +
+        '<div class="cs-row"><span class="cs-lbl">Diferencia</span><span class="cs-val" style="color:' + difColor + '">' + difSign + fmtM(Math.abs(d.diferencia)) + '</span></div>' +
+        (d.nota ? '<div class="cs-nota">' + d.nota + '</div>' : '');
+    } else {
+      // Sin cierre: saldo calculado desde registros en tiempo real
+      totalEfectivo += efvo;
+      var efvoColor = efvo >= 0 ? "var(--green)" : "var(--red)";
+      card.classList.add("cierre-pendiente");
+      card.innerHTML =
+        '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
+        '<div class="cs-estado cs-pendiente">⏳ Sin cerrar</div>' +
+        '<div class="cs-row"><span class="cs-lbl">Efectivo</span><span class="cs-val" style="color:' + efvoColor + '">' + fmtM(efvo) + '</span></div>';
     }
+    cont.appendChild(card);
   });
+
+  if (totalVal) {
+    totalVal.textContent = fmtFull(totalEfectivo);
+    totalVal.style.color = totalEfectivo >= 0 ? "var(--green)" : "var(--red)";
+  }
 }
 
 // ===================== SECCIÓN: DEUDAS =====================
@@ -1620,11 +1633,19 @@ function initFirebase() {
       });
     }
     renderHome();
-    renderCierreStrip();
+    // renderCierreStrip se dispara desde el listener de cierres
     if (sectionActual === "objetivos") renderObjetivos();
     if (sectionActual === "egresos")   renderEgresos(periodEgresos);
     if (sectionActual === "merma")     renderMerma();
     if (sectionActual === "historial") renderHistorial(periodHist);
+  });
+
+  // Listener de cierres — se actualiza en tiempo real y re-evalúa fechaOperativa()
+  // al momento de recibir cada snapshot, resolviendo el problema del cambio de día
+  firebase.database().ref("cierres").on("value", function(cierresSnap) {
+    var fecha       = fechaOperativa();
+    var cierreHoy   = cierresSnap.exists() ? cierresSnap.child(fecha) : null;
+    renderCierreStrip(cierreHoy && cierreHoy.exists() ? cierreHoy : null);
   });
 
   firebase.database().ref("facturas").on("value", function(snap) {
@@ -1651,6 +1672,31 @@ function initFirebase() {
     if (sectionActual === "facturas") renderFacturas();
   });
 }
+
+  firebase.database().ref("facturas").on("value", function(snap) {
+    allFacturas = [];
+    if (snap.exists()) {
+      snap.forEach(function(child) {
+        allFacturas.push(Object.assign({ _id: child.key }, child.val()));
+      });
+    }
+    // Actualizar autocompletado de proveedores con nombres únicos, ordenados
+    var datalist = document.getElementById("proveedores-list");
+    if (datalist) {
+      var proveedores = [];
+      allFacturas.forEach(function(f) {
+        if (f.proveedor && proveedores.indexOf(f.proveedor) === -1) {
+          proveedores.push(f.proveedor);
+        }
+      });
+      proveedores.sort();
+      datalist.innerHTML = proveedores.map(function(p) {
+        return '<option value="' + p.replace(/"/g, '&quot;') + '">';
+      }).join("");
+    }
+    if (sectionActual === "facturas") renderFacturas();
+  });
+
 
 // ===================== INIT =====================
 function initApp() {
