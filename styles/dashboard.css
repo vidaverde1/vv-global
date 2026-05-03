@@ -973,6 +973,55 @@ body {
 .semanal-td-tot       { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: .82rem; font-weight: 700; color: var(--text); }
 .semanal-row-actual .semanal-td-tot { color: var(--green); }
 
+/* ===================== FILTROS FACTURAS ===================== */
+.fact-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.fact-filtro-wrap { flex: 1; min-width: 130px; }
+
+.fact-filtro-select,
+.fact-filtro-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: .82rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color .2s;
+  appearance: none;
+}
+.fact-filtro-select:focus,
+.fact-filtro-input:focus { border-color: var(--green); }
+.fact-filtro-input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(.5); cursor: pointer; }
+
+.fact-filtro-clear {
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  border-radius: 7px;
+  padding: 7px 12px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .2s;
+  flex-shrink: 0;
+}
+.fact-filtro-clear:hover { border-color: var(--red); color: var(--red); }
+
 /* ===================== FACTURAS ===================== */
 .fact-form-card {
   background: var(--bg2);

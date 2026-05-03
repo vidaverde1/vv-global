@@ -64,7 +64,8 @@ var sectionActual     = "home";
 var periodEgresos     = "hoy";
 var periodHist        = "semana";
 var viewParticipacion = "donut"; // "donut" | "bar"
-var facturasMesViendo = null;    // se inicializa en initFacturas()
+var facturasMesViendo  = null;    // se inicializa en initFacturas()
+var objetivosMesViendo = null;    // se inicializa en initObjetivosModal()
 
 // ===================== AUTH DASHBOARD =====================
 var AUTH_KEY      = "vvglobal_dash_auth";
@@ -216,8 +217,21 @@ function pedirClaveAdmin() {
 }
 
 // ===================== HELPERS =====================
-function today()      { return new Date().toISOString().slice(0, 10); }
-function mesActual()  { return new Date().toISOString().slice(0, 7); }
+function today() {
+  var d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function mesActual() {
+  var d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+}
+// Suma/resta meses de forma segura con fecha local (evita bugs de UTC en timezones negativos)
+function sumarMes(mesStr, delta) {
+  var anio = parseInt(mesStr.slice(0,4));
+  var mes  = parseInt(mesStr.slice(5,7)) - 1 + delta;
+  var d    = new Date(anio, mes, 1);
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+}
 
 // Fecha operativa: antes de las 9:00 se considera que aún es el día anterior.
 // Usada en renderHome, renderCierreStrip y cualquier vista de "hoy".
@@ -236,10 +250,7 @@ function mesOperativo() {
 }
 
 function mesAnterior() {
-  var d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() - 1);
-  return d.toISOString().slice(0, 7);
+  return sumarMes(mesActual(), -1);
 }
 
 function fmtM(n) {
@@ -629,11 +640,34 @@ function calcDiasHabiles() {
 
 function renderObjetivos() {
   var obj   = getObjetivos();
-  var mes   = mesOperativo();
+  var mes   = objetivosMesViendo || mesOperativo();
+  var esActual = mes === mesOperativo();
+
+  // Actualizar label del mes
+  var mesN    = parseInt(mes.slice(5, 7));
+  var nombres = ["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  var labelEl = document.getElementById("obj-mes-label");
+  if (labelEl) labelEl.textContent = nombres[mesN] + " " + mes.slice(0, 4);
+
+  // Deshabilitar botón "siguiente" si ya estamos en el mes actual
+  var btnNext = document.getElementById("obj-mes-next");
+  if (btnNext) btnNext.disabled = esActual;
+
   var dias  = diasDeMes(mes);
   var habil = calcDiasHabiles();
   var cont  = document.getElementById("obj-cards");
   cont.innerHTML = "";
+
+  // Para meses pasados: habil refiere al mes viendo, no al actual
+  var habilMes = esActual ? habil : (function() {
+    var anio = parseInt(mes.slice(0,4)), mesN2 = parseInt(mes.slice(5,7)) - 1;
+    var ultimo = new Date(anio, mesN2 + 1, 0).getDate();
+    var tot = 0;
+    for (var d = 1; d <= ultimo; d++) {
+      if (new Date(anio, mesN2, d).getDay() !== 0) tot++;
+    }
+    return { transcurridos: tot, restantes: 0, totales: tot };
+  })();
 
   // Card global
   var acumTotal = 0, metaTotal = 0;
@@ -645,15 +679,26 @@ function renderObjetivos() {
   var pctRealGlobal  = metaTotal > 0 ? ((acumTotal / metaTotal) * 100).toFixed(1) : "0.0";
   var faltaTotal     = Math.max(metaTotal - acumTotal, 0);
   var barColorGlobal = pctTotal >= 80 ? "var(--green)" : pctTotal >= 50 ? "#f0a500" : "var(--red)";
-  var promReqGlobal  = (habil.restantes > 0 && faltaTotal > 0) ? faltaTotal / habil.restantes : 0;
-  var promRealGlobal = habil.transcurridos > 0 ? acumTotal / habil.transcurridos : 0;
+  var promReqGlobal  = (habilMes.restantes > 0 && faltaTotal > 0) ? faltaTotal / habilMes.restantes : 0;
+  var promRealGlobal = habilMes.transcurridos > 0 ? acumTotal / habilMes.transcurridos : 0;
+
+  var globalSubHtml;
+  if (acumTotal >= metaTotal && metaTotal > 0) {
+    globalSubHtml = '<span style="color:var(--green);font-weight:700">✓ Objetivo global alcanzado</span>';
+  } else if (!esActual) {
+    globalSubHtml = '<span style="color:var(--red);font-weight:600">✗ Objetivo no alcanzado · ' +
+      fmtFull(acumTotal) + ' de ' + fmtFull(metaTotal) + '</span>';
+  } else {
+    globalSubHtml = '<span>Promedio req. <strong style="color:' + barColorGlobal + '">' + fmtFull(Math.ceil(promReqGlobal)) + '/día</strong> · ' +
+      habilMes.restantes + ' días hábiles restantes · Prom. real: ' + fmtM(Math.round(promRealGlobal)) + '/día</span>';
+  }
 
   var globalCard = document.createElement("div");
   globalCard.className = "obj-global-card";
   globalCard.innerHTML =
     '<div class="obj-global-top">' +
       '<div>' +
-        '<div class="obj-global-label">Objetivo global — ' + new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" }) + '</div>' +
+        '<div class="obj-global-label">Objetivo global — ' + nombres[mesN] + ' ' + mes.slice(0,4) + '</div>' +
         '<div class="obj-global-vals">' +
           '<span class="obj-global-acum">' + fmtFull(acumTotal) + '</span>' +
           '<span class="obj-global-sep">/</span>' +
@@ -665,13 +710,7 @@ function renderObjetivos() {
     '<div class="obj-bar-bg" style="height:8px;margin:10px 0 6px">' +
       '<div class="obj-bar-fill" style="width:' + pctTotal + '%;background:' + barColorGlobal + ';height:8px;border-radius:4px"></div>' +
     '</div>' +
-    '<div class="obj-global-sub">' +
-      (acumTotal >= metaTotal && metaTotal > 0
-        ? '<span style="color:var(--green);font-weight:700">✓ Objetivo global alcanzado</span>'
-        : '<span>Promedio req. <strong style="color:' + barColorGlobal + '">' + fmtFull(Math.ceil(promReqGlobal)) + '/día</strong> · ' +
-          habil.restantes + ' días hábiles restantes · Prom. real: ' + fmtM(Math.round(promRealGlobal)) + '/día</span>'
-      ) +
-    '</div>';
+    '<div class="obj-global-sub">' + globalSubHtml + '</div>';
   cont.appendChild(globalCard);
 
   // Cards por sucursal
@@ -682,14 +721,19 @@ function renderObjetivos() {
     var pct      = meta > 0 ? Math.min((acum / meta) * 100, 100) : 0;
     var pctReal  = meta > 0 ? ((acum / meta) * 100).toFixed(1) : "0.0";
     var barColor = pct >= 80 ? "var(--green)" : pct >= 50 ? "#f0a500" : "var(--red)";
-    var promReq  = (habil.restantes > 0 && falta > 0) ? falta / habil.restantes : 0;
-    var promReal = habil.transcurridos > 0 ? acum / habil.transcurridos : 0;
+    var promReq  = (habilMes.restantes > 0 && falta > 0) ? falta / habilMes.restantes : 0;
+    var promReal = habilMes.transcurridos > 0 ? acum / habilMes.transcurridos : 0;
     var yaAlcanzo = acum >= meta && meta > 0;
 
     var promHtml;
     if (yaAlcanzo) {
       promHtml = '<div class="obj-prom-row obj-prom-ok">✓ Objetivo alcanzado</div>';
-    } else if (habil.restantes === 0) {
+    } else if (!esActual) {
+      promHtml = '<div class="obj-prom-row" style="border-color:var(--red-dim);background:var(--red-dim)">' +
+        '<span class="obj-prom-label" style="color:var(--muted2)">No alcanzado</span>' +
+        '<span class="obj-prom-val" style="color:var(--red)">−' + fmtFull(falta) + '</span>' +
+        '</div>';
+    } else if (habilMes.restantes === 0) {
       promHtml = '<div class="obj-prom-row obj-prom-warn">Sin días hábiles restantes</div>';
     } else {
       var promColor = promReq <= promReal ? "var(--green)" : promReq <= promReal * 1.3 ? "#f0a500" : "var(--red)";
@@ -722,11 +766,22 @@ function renderObjetivos() {
 }
 
 function initObjetivosModal() {
+  objetivosMesViendo = mesActual();
+
   var btnEdit   = document.getElementById("btn-edit-obj");
   var modal     = document.getElementById("obj-modal");
   var btnCancel = document.getElementById("btn-cancel-obj");
   var btnSave   = document.getElementById("btn-save-obj");
   var fields    = document.getElementById("obj-fields");
+
+  document.getElementById("obj-mes-prev").addEventListener("click", function() {
+    objetivosMesViendo = sumarMes(objetivosMesViendo, -1);
+    renderObjetivos();
+  });
+  document.getElementById("obj-mes-next").addEventListener("click", function() {
+    objetivosMesViendo = sumarMes(objetivosMesViendo, +1);
+    renderObjetivos();
+  });
 
   btnEdit.addEventListener("click", function() {
     pedirClaveAdmin().then(function(ok) {
@@ -830,16 +885,31 @@ function renderFacturas() {
     "<td class='fact-td-tot'>" + (totGlobal ? fmtFull(totGlobal) : "—") + "</td>";
   tbody.appendChild(trTot);
 
-  // Lista detallada
+  // Lista detallada con filtros
+  var filtroSuc    = (document.getElementById("filtro-sucursal")    || {}).value || "";
+  var filtroProv   = ((document.getElementById("filtro-proveedor")  || {}).value || "").trim().toLowerCase();
+  var filtroDesde  = (document.getElementById("filtro-fecha-desde") || {}).value || "";
+  var filtroHasta  = (document.getElementById("filtro-fecha-hasta") || {}).value || "";
+
   var listaTbody = document.getElementById("fact-lista-tbody");
   listaTbody.innerHTML = "";
 
-  if (!del_mes.length) {
-    listaTbody.innerHTML = "<tr><td colspan='6' class='fact-empty-row'>Sin facturas para este mes.</td></tr>";
+  var filtradas = del_mes.filter(function(f) {
+    if (filtroSuc  && f.sucursal !== filtroSuc) return false;
+    if (filtroProv && !(f.proveedor || "").toLowerCase().includes(filtroProv)) return false;
+    if (filtroDesde && f.fecha < filtroDesde) return false;
+    if (filtroHasta && f.fecha > filtroHasta) return false;
+    return true;
+  });
+
+  if (!filtradas.length) {
+    listaTbody.innerHTML = "<tr><td colspan='6' class='fact-empty-row'>" +
+      (del_mes.length ? "Sin facturas para los filtros aplicados." : "Sin facturas para este mes.") +
+      "</td></tr>";
     return;
   }
 
-  del_mes.forEach(function(f) {
+  filtradas.forEach(function(f) {
     var c  = COLORS[f.sucursal] || "#888";
     var tr = document.createElement("tr");
     tr.innerHTML =
@@ -936,19 +1006,24 @@ function initFacturas() {
   document.getElementById("btn-guardar-fact").addEventListener("click", guardarFactura);
   document.getElementById("btn-export-facturas").addEventListener("click", exportarFacturasCSV);
 
-  document.getElementById("fact-mes-prev").addEventListener("click", function() {
-    var d = new Date(facturasMesViendo + "-01");
-    d.setMonth(d.getMonth() - 1);
-    facturasMesViendo = d.toISOString().slice(0, 7);
+  document.getElementById("filtro-sucursal").addEventListener("change", renderFacturas);
+  document.getElementById("filtro-proveedor").addEventListener("input", renderFacturas);
+  document.getElementById("filtro-fecha-desde").addEventListener("change", renderFacturas);
+  document.getElementById("filtro-fecha-hasta").addEventListener("change", renderFacturas);
+  document.getElementById("btn-limpiar-filtros").addEventListener("click", function() {
+    document.getElementById("filtro-sucursal").value    = "";
+    document.getElementById("filtro-proveedor").value   = "";
+    document.getElementById("filtro-fecha-desde").value = "";
+    document.getElementById("filtro-fecha-hasta").value = "";
     renderFacturas();
   });
+    renderFacturas();
+  };
   document.getElementById("fact-mes-next").addEventListener("click", function() {
-    var d = new Date(facturasMesViendo + "-01");
-    d.setMonth(d.getMonth() + 1);
-    facturasMesViendo = d.toISOString().slice(0, 7);
+    facturasMesViendo = sumarMes(facturasMesViendo, +1);
     renderFacturas();
   });
-}
+
 
 // ===================== SECCIÓN: EGRESOS =====================
 function renderEgresos(period) {
@@ -1310,59 +1385,74 @@ function initSemanal() {
 
 // ===================== CIERRE DE CAJA =====================
 
-// Calcula el efectivo del día para una sucursal desde allData (sin cierre)
-function calcEfvoDia(fecha, suc) {
-  var efvo = 0;
-  getRegs(fecha, suc).forEach(function(r) {
-    if (r.tipo === "ventas") {
-      efvo += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
-    } else if (r.tipo === "movimientos") {
-      (r.ingresosInter || []).forEach(function(inter) { efvo += inter.monto || 0; });
-      efvo -= r.totalEgresos || 0;
-    }
+// ===================== CIERRE DE CAJA =====================
+
+// Para una sucursal: último cierre registrado (cualquier fecha) + todos los
+// movimientos de efectivo registrados DESPUÉS de ese cierre.
+// Si no hay cierre: suma todos los movimientos históricos.
+function calcEfectivoAcumulado(suc, cierresSnap) {
+  // 1. Buscar último cierre de esta sucursal
+  var ultimoContado = null;
+  var ultimaFecha   = "";
+
+  if (cierresSnap && cierresSnap.exists()) {
+    cierresSnap.forEach(function(daySnap) {
+      var sucSnap = daySnap.child(suc);
+      if (sucSnap.exists() && sucSnap.val().contado != null) {
+        if (daySnap.key > ultimaFecha) {
+          ultimaFecha   = daySnap.key;
+          ultimoContado = sucSnap.val().contado;
+        }
+      }
+    });
+  }
+
+  // 2. Sumar movimientos de efectivo posteriores al último cierre (o todos si no hay cierre)
+  var movsPosterior = 0;
+  Object.keys(allData).sort().forEach(function(fecha) {
+    if (ultimaFecha && fecha <= ultimaFecha) return; // solo días posteriores al cierre
+    var regs = allData[fecha][suc] || [];
+    regs.forEach(function(r) {
+      if (r.esEspejoInter) return;
+      if (r.tipo === "ventas") {
+        movsPosterior += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
+      } else if (r.tipo === "movimientos") {
+        movsPosterior += r.totalIngInter || 0;
+        movsPosterior -= r.totalEgresos  || 0;
+      }
+    });
   });
-  return efvo;
+
+  return (ultimoContado !== null ? ultimoContado : 0) + movsPosterior;
 }
 
-// Busca el saldo efectivo de una sucursal para una fecha dada desde registros
-// (usado como fallback cuando no hay cierre registrado)
-function calcEfvoFecha(fecha, suc) {
-  var efvo = 0;
-  var regs = (allData[fecha] && allData[fecha][suc]) ? allData[fecha][suc] : [];
-  regs.forEach(function(r) {
-    if (r.tipo === "ventas") {
-      efvo += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
-    } else if (r.tipo === "movimientos") {
-      (r.ingresosInter || []).forEach(function(inter) { efvo += inter.monto || 0; });
-      efvo -= r.totalEgresos || 0;
-    }
-  });
-  return efvo;
-}
-
-// Recibe cierreSnap directamente — sin hacer lecturas propias de Firebase
-function renderCierreStrip(cierreSnap) {
+// Recibe el snapshot completo de cierres para calcular el total acumulado
+function renderCierreStrip(cierresSnap) {
   var cont     = document.getElementById("cierre-strip-home");
   var totalVal = document.getElementById("cierre-total-val");
   if (!cont) return;
 
-  var fecha = fechaOperativa();
+  var fechaHoy  = fechaOperativa();
+  var cierreHoy = (cierresSnap && cierresSnap.exists()) ? cierresSnap.child(fechaHoy) : null;
+
   cont.innerHTML = "";
   var totalEfectivo = 0;
 
   SUCURSALES.forEach(function(suc) {
-    var efvo = calcEfvoDia(fecha, suc);
+    // Efectivo acumulado real de la sucursal (sin reinicio)
+    var efvoAcum = calcEfectivoAcumulado(suc, cierresSnap);
+    totalEfectivo += efvoAcum;
+
     var card = document.createElement("div");
     card.className = "cierre-dash-card";
     var c = COLORS[suc];
 
-    if (cierreSnap && cierreSnap.exists() && cierreSnap.child(suc).exists()) {
-      // Sucursal cerrada: usar contado del empleado
-      var d        = cierreSnap.child(suc).val();
+    if (cierreHoy && cierreHoy.exists() && cierreHoy.child(suc).exists()) {
+      // Sucursal cerrada hoy: mostrar datos del cierre
+      var d        = cierreHoy.child(suc).val();
       var difSign  = d.diferencia >= 0 ? "+" : "−";
       var difColor = d.diferencia >= 0 ? "var(--green)" : "var(--red)";
       var hora     = new Date(d.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-      totalEfectivo += d.contado || 0;
       card.classList.add("cierre-ok");
       card.innerHTML =
         '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
@@ -1372,14 +1462,13 @@ function renderCierreStrip(cierreSnap) {
         '<div class="cs-row"><span class="cs-lbl">Diferencia</span><span class="cs-val" style="color:' + difColor + '">' + difSign + fmtM(Math.abs(d.diferencia)) + '</span></div>' +
         (d.nota ? '<div class="cs-nota">' + d.nota + '</div>' : '');
     } else {
-      // Sin cierre: saldo calculado desde registros en tiempo real
-      totalEfectivo += efvo;
-      var efvoColor = efvo >= 0 ? "var(--green)" : "var(--red)";
+      // Sin cierre hoy: mostrar saldo acumulado en tiempo real
+      var efvoColor = efvoAcum >= 0 ? "var(--green)" : "var(--red)";
       card.classList.add("cierre-pendiente");
       card.innerHTML =
         '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
-        '<div class="cs-estado cs-pendiente">⏳ Sin cerrar</div>' +
-        '<div class="cs-row"><span class="cs-lbl">Efectivo</span><span class="cs-val" style="color:' + efvoColor + '">' + fmtM(efvo) + '</span></div>';
+        '<div class="cs-estado cs-pendiente">⏳ Sin cerrar hoy</div>' +
+        '<div class="cs-row"><span class="cs-lbl">Efectivo</span><span class="cs-val" style="color:' + efvoColor + '">' + fmtM(efvoAcum) + '</span></div>';
     }
     cont.appendChild(card);
   });
@@ -1616,6 +1705,8 @@ function initDeudas() {
   });
 }
 
+var cierresSnapCache = null; // cache del último snapshot de cierres
+
 // ===================== FIREBASE =====================
 function initFirebase() {
   firebase.database().ref("registros").on("value", function(snap) {
@@ -1633,19 +1724,18 @@ function initFirebase() {
       });
     }
     renderHome();
-    // renderCierreStrip se dispara desde el listener de cierres
+    // Recalcular efectivo acumulado con los registros actualizados
+    renderCierreStrip(cierresSnapCache);
     if (sectionActual === "objetivos") renderObjetivos();
     if (sectionActual === "egresos")   renderEgresos(periodEgresos);
     if (sectionActual === "merma")     renderMerma();
     if (sectionActual === "historial") renderHistorial(periodHist);
   });
 
-  // Listener de cierres — se actualiza en tiempo real y re-evalúa fechaOperativa()
-  // al momento de recibir cada snapshot, resolviendo el problema del cambio de día
+  // Listener de cierres — pasa el snapshot completo para calcular efectivo acumulado
   firebase.database().ref("cierres").on("value", function(cierresSnap) {
-    var fecha       = fechaOperativa();
-    var cierreHoy   = cierresSnap.exists() ? cierresSnap.child(fecha) : null;
-    renderCierreStrip(cierreHoy && cierreHoy.exists() ? cierreHoy : null);
+    cierresSnapCache = cierresSnap;
+    renderCierreStrip(cierresSnap);
   });
 
   firebase.database().ref("facturas").on("value", function(snap) {
@@ -1655,48 +1745,24 @@ function initFirebase() {
         allFacturas.push(Object.assign({ _id: child.key }, child.val()));
       });
     }
-    // Actualizar autocompletado de proveedores con nombres únicos, ordenados
-    var datalist = document.getElementById("proveedores-list");
-    if (datalist) {
-      var proveedores = [];
-      allFacturas.forEach(function(f) {
-        if (f.proveedor && proveedores.indexOf(f.proveedor) === -1) {
-          proveedores.push(f.proveedor);
-        }
-      });
-      proveedores.sort();
-      datalist.innerHTML = proveedores.map(function(p) {
-        return '<option value="' + p.replace(/"/g, '&quot;') + '">';
-      }).join("");
-    }
+    // Autocompletado: proveedores y números únicos ordenados
+    var proveedores = [], numeros = [];
+    allFacturas.forEach(function(f) {
+      if (f.proveedor && proveedores.indexOf(f.proveedor) === -1) proveedores.push(f.proveedor);
+      if (f.numero    && numeros.indexOf(f.numero)       === -1) numeros.push(f.numero);
+    });
+    proveedores.sort(); numeros.sort();
+    var dlProv = document.getElementById("proveedores-list");
+    if (dlProv) dlProv.innerHTML = proveedores.map(function(p) {
+      return '<option value="' + p.replace(/"/g, '&quot;') + '">';
+    }).join("");
+    var dlNum = document.getElementById("numeros-list");
+    if (dlNum) dlNum.innerHTML = numeros.map(function(n) {
+      return '<option value="' + n.replace(/"/g, '&quot;') + '">';
+    }).join("");
     if (sectionActual === "facturas") renderFacturas();
   });
 }
-
-  firebase.database().ref("facturas").on("value", function(snap) {
-    allFacturas = [];
-    if (snap.exists()) {
-      snap.forEach(function(child) {
-        allFacturas.push(Object.assign({ _id: child.key }, child.val()));
-      });
-    }
-    // Actualizar autocompletado de proveedores con nombres únicos, ordenados
-    var datalist = document.getElementById("proveedores-list");
-    if (datalist) {
-      var proveedores = [];
-      allFacturas.forEach(function(f) {
-        if (f.proveedor && proveedores.indexOf(f.proveedor) === -1) {
-          proveedores.push(f.proveedor);
-        }
-      });
-      proveedores.sort();
-      datalist.innerHTML = proveedores.map(function(p) {
-        return '<option value="' + p.replace(/"/g, '&quot;') + '">';
-      }).join("");
-    }
-    if (sectionActual === "facturas") renderFacturas();
-  });
-
 
 // ===================== INIT =====================
 function initApp() {
