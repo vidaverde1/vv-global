@@ -82,12 +82,10 @@ function fmtObj(n) {
 // Antes de las 9:00 se considera que aún es el día anterior
 function fechaOperativa() {
   var ahora = new Date();
-  if (ahora.getHours() < 9) {
-    var ayer = new Date(ahora);
-    ayer.setDate(ayer.getDate() - 1);
-    return ayer.toISOString().slice(0, 10);
-  }
-  return ahora.toISOString().slice(0, 10);
+  var h = ahora.getHours();
+  var d = h < 9 ? new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1)
+                : new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
 }
 
 function showToast(msg, tipo) {
@@ -765,7 +763,7 @@ function renderResumen() {
 
   registrosHoy.slice().reverse().forEach(function(reg) {
     var card = document.createElement("div");
-    var hora = new Date(reg.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+    var hora = new Date(reg.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
     var acciones =
       '<div class="reg-acciones">' +
         '<button class="reg-btn-edit" data-id="' + reg.id + '">✎</button>' +
@@ -1028,7 +1026,7 @@ function renderHistorialSucursal() {
 
     regs.slice().reverse().forEach(function(reg) {
       var card = document.createElement("div");
-      var hora = new Date(reg.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+      var hora = new Date(reg.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
 
       if (reg.tipo === "ventas") {
         card.className = "reg-card";

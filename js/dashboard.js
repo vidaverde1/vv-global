@@ -234,15 +234,13 @@ function sumarMes(mesStr, delta) {
 }
 
 // Fecha operativa: antes de las 9:00 se considera que aún es el día anterior.
-// Usada en renderHome, renderCierreStrip y cualquier vista de "hoy".
+// Usa fecha LOCAL para evitar bugs de UTC en timezone Argentina (UTC-3).
 function fechaOperativa() {
   var ahora = new Date();
-  if (ahora.getHours() < 9) {
-    var ayer = new Date(ahora);
-    ayer.setDate(ayer.getDate() - 1);
-    return ayer.toISOString().slice(0, 10);
-  }
-  return ahora.toISOString().slice(0, 10);
+  var h = ahora.getHours();
+  var d = h < 9 ? new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() - 1)
+                : new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
 }
 
 function mesOperativo() {
@@ -445,7 +443,7 @@ function renderFeed() {
   container.innerHTML = "";
   ultimos.forEach(function(r) {
     var ts   = new Date(r.timestamp);
-    var hora = ts.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+    var hora = ts.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
     var fdia = ts.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
     var c    = COLORS[r.sucursal] || "#888";
     var div  = document.createElement("div");
@@ -686,7 +684,7 @@ function renderObjetivos() {
   if (acumTotal >= metaTotal && metaTotal > 0) {
     globalSubHtml = '<span style="color:var(--green);font-weight:700">✓ Objetivo global alcanzado</span>';
   } else if (!esActual) {
-    globalSubHtml = '<span style="color:var(--red);font-weight:600">✗ Objetivo no alcanzado · ' +
+    globalSubHtml = '<span style="color:#f0a500;font-weight:600">📈 En progreso · ' +
       fmtFull(acumTotal) + ' de ' + fmtFull(metaTotal) + '</span>';
   } else {
     globalSubHtml = '<span>Promedio req. <strong style="color:' + barColorGlobal + '">' + fmtFull(Math.ceil(promReqGlobal)) + '/día</strong> · ' +
@@ -730,8 +728,8 @@ function renderObjetivos() {
       promHtml = '<div class="obj-prom-row obj-prom-ok">✓ Objetivo alcanzado</div>';
     } else if (!esActual) {
       promHtml = '<div class="obj-prom-row" style="border-color:var(--red-dim);background:var(--red-dim)">' +
-        '<span class="obj-prom-label" style="color:var(--muted2)">No alcanzado</span>' +
-        '<span class="obj-prom-val" style="color:var(--red)">−' + fmtFull(falta) + '</span>' +
+        '<span class="obj-prom-label" style="color:var(--muted2)">Faltan</span>' +
+        '<span class="obj-prom-val" style="color:#f0a500">−' + fmtFull(falta) + '</span>' +
         '</div>';
     } else if (habilMes.restantes === 0) {
       promHtml = '<div class="obj-prom-row obj-prom-warn">Sin días hábiles restantes</div>';
@@ -1452,7 +1450,7 @@ function renderCierreStrip(cierresSnap) {
       var d        = cierreHoy.child(suc).val();
       var difSign  = d.diferencia >= 0 ? "+" : "−";
       var difColor = d.diferencia >= 0 ? "var(--green)" : "var(--red)";
-      var hora     = new Date(d.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+      var hora     = new Date(d.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
       card.classList.add("cierre-ok");
       card.innerHTML =
         '<div class="cs-suc" style="color:' + c + '">' + suc + '</div>' +
@@ -1771,7 +1769,7 @@ function initApp() {
 
   function tickReloj() {
     document.getElementById("reloj").textContent =
-      new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
   }
   tickReloj();
   setInterval(tickReloj, 1000);
