@@ -1015,13 +1015,15 @@ function initFacturas() {
     document.getElementById("filtro-fecha-hasta").value = "";
     renderFacturas();
   });
+  document.getElementById("fact-mes-prev").addEventListener("click", function() {
+    facturasMesViendo = sumarMes(facturasMesViendo, -1);
     renderFacturas();
-  };
+  });
   document.getElementById("fact-mes-next").addEventListener("click", function() {
     facturasMesViendo = sumarMes(facturasMesViendo, +1);
     renderFacturas();
   });
-
+}
 
 // ===================== SECCIÓN: EGRESOS =====================
 function renderEgresos(period) {
