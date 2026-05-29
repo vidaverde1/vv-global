@@ -53,6 +53,7 @@
       <li class="menu-item" data-section="egresos"><span class="menu-icon">◑</span>Egresos</li>
       <li class="menu-item" data-section="merma"><span class="menu-icon">◫</span>Merma</li>
       <li class="menu-item" data-section="historial"><span class="menu-icon">◷</span>Historial</li>
+      <li class="menu-item" data-section="sueldos"><span class="menu-icon">◉</span>Sueldos</li>
     </ul>
     <div class="sidebar-footer">
       <span class="live-dot"></span><span>En vivo · Firebase</span>
@@ -125,6 +126,16 @@
       </div>
 
       <div class="block-title">Por sucursal — hoy</div>
+      <div class="toggle-row" id="toggle-suc">
+        <button class="toggle-btn active" data-val="hoy">Hoy</button>
+        <button class="toggle-btn" data-val="7dias">Últimos 7 días</button>
+        <button class="toggle-btn" data-val="mes">Este mes</button>
+        <button class="toggle-btn" data-val="periodo">Período</button>
+      </div>
+      <div id="home-periodo-filtro" style="display:none;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <input type="date" id="home-desde" class="fact-filtro-input">
+        <input type="date" id="home-hasta" class="fact-filtro-input">
+      </div>
       <div class="suc-grid" id="suc-grid-home"></div>
 
       <div class="charts-row2">
@@ -405,8 +416,130 @@
         <div class="chart-subtitle">Ingresos diarios por sucursal</div>
         <canvas id="chart-hist"></canvas>
       </div>
+      <div class="block-title">Acumulado mes actual</div>
+      <div class="tabla-wrap" id="hist-totales-mes"></div>
       <div class="block-title">Tabla de días</div>
       <div class="tabla-wrap" id="hist-tabla"></div>
+    </section>
+
+    <!-- MODAL EDITAR EMPLEADO -->
+    <div id="emp-edit-modal" class="admin-modal-overlay hidden">
+      <div class="db-login-card" style="max-width:480px;text-align:left;padding:28px 28px 24px">
+        <div class="db-login-title" style="text-align:center;margin-bottom:20px">Editar empleado</div>
+        <div class="fact-form-grid" style="margin-bottom:14px">
+          <div class="fact-field">
+            <label>ID / Legajo</label>
+            <input type="text" id="emp-edit-id" placeholder="Ej: 0042">
+          </div>
+          <div class="fact-field">
+            <label>Nombre completo</label>
+            <input type="text" id="emp-edit-nombre" placeholder="Apellido, Nombre">
+          </div>
+          <div class="fact-field">
+            <label>DNI</label>
+            <input type="text" id="emp-edit-dni" placeholder="00.000.000">
+          </div>
+          <div class="fact-field">
+            <label>Sucursal</label>
+            <div class="select-wrap-dark">
+              <select id="emp-edit-suc">
+                <option value="">— Seleccioná —</option>
+                <option value="NAZCA">NAZCA</option>
+                <option value="OLAZABAL">OLAZABAL</option>
+                <option value="CUENCA">CUENCA</option>
+                <option value="BEIRO">BEIRO</option>
+                <option value="GOYENA">GOYENA</option>
+              </select>
+            </div>
+          </div>
+          <div class="fact-field">
+            <label>Puesto</label>
+            <input type="text" id="emp-edit-puesto" placeholder="Vendedor, Encargado...">
+          </div>
+          <div class="fact-field">
+            <label>Sueldo base</label>
+            <div class="fact-monto-wrap">
+              <span class="fact-prefix">$</span>
+              <input type="number" id="emp-edit-sueldo" min="0" step="1" placeholder="0">
+            </div>
+          </div>
+        </div>
+        <div class="db-login-error hidden" id="emp-edit-error">Error al guardar</div>
+        <button class="db-login-btn" id="emp-edit-save-btn">Guardar cambios</button>
+        <button class="admin-modal-cancel" id="emp-edit-cancel-btn">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- SUELDOS -->
+    <section class="section" id="section-sueldos">
+      <div class="section-top-row">
+        <div class="section-desc">Gestión de empleados y liquidación de sueldos</div>
+      </div>
+
+      <div id="sueldos-content" style="display:none">
+
+        <div class="sueldos-total-banner">
+          <span class="sueldos-total-label">Total sueldos base</span>
+          <span class="sueldos-total-val" id="sueldos-total-val">—</span>
+        </div>
+
+        <div class="block-title">Nuevo empleado</div>
+        <div class="fact-form-card">
+          <div class="fact-form-grid">
+            <div class="fact-field">
+              <label>ID / Legajo</label>
+              <input type="text" id="emp-id" placeholder="Ej: 0042">
+            </div>
+            <div class="fact-field">
+              <label>Nombre completo</label>
+              <input type="text" id="emp-nombre" placeholder="Apellido, Nombre">
+            </div>
+            <div class="fact-field">
+              <label>DNI</label>
+              <input type="text" id="emp-dni" placeholder="00.000.000">
+            </div>
+            <div class="fact-field">
+              <label>Sucursal</label>
+              <div class="select-wrap-dark">
+                <select id="emp-sucursal">
+                  <option value="">— Seleccioná —</option>
+                  <option value="NAZCA">NAZCA</option>
+                  <option value="OLAZABAL">OLAZABAL</option>
+                  <option value="CUENCA">CUENCA</option>
+                  <option value="BEIRO">BEIRO</option>
+                  <option value="GOYENA">GOYENA</option>
+                </select>
+              </div>
+            </div>
+            <div class="fact-field">
+              <label>Puesto</label>
+              <input type="text" id="emp-puesto" placeholder="Vendedor, Encargado...">
+            </div>
+            <div class="fact-field">
+              <label>Sueldo base</label>
+              <div class="fact-monto-wrap">
+                <span class="fact-prefix">$</span>
+                <input type="number" id="emp-sueldo" min="0" step="1" placeholder="0">
+              </div>
+            </div>
+          </div>
+          <button class="btn-guardar-fact" id="btn-guardar-empleado">+ Agregar empleado</button>
+        </div>
+
+        <div class="block-title">Empleados activos</div>
+        <div class="fact-lista-wrap">
+          <table class="fact-lista-tabla">
+            <thead>
+              <tr>
+                <th>ID</th><th>Nombre</th><th>DNI</th>
+                <th>Sucursal</th><th>Puesto</th><th>Sueldo Base</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="emp-tabla-tbody"></tbody>
+          </table>
+        </div>
+
+      </div>
     </section>
 
   </main>

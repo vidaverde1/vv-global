@@ -59,6 +59,8 @@ var OBJETIVOS_DEFAULT = {
 var allData           = {};
 var allFacturas       = [];
 var allDeudas         = [];
+var allEmpleados      = [];
+var sueldosRef        = null;
 var charts            = {};
 var sectionActual     = "home";
 var periodEgresos     = "hoy";
@@ -66,6 +68,9 @@ var periodHist        = "semana";
 var viewParticipacion = "donut"; // "donut" | "bar"
 var facturasMesViendo  = null;    // se inicializa en initFacturas()
 var objetivosMesViendo = null;    // se inicializa en initObjetivosModal()
+var periodHome         = "hoy";
+var periodHomeDesde    = "";
+var periodHomeHasta    = "";
 
 // ===================== AUTH DASHBOARD =====================
 var AUTH_KEY      = "vvglobal_dash_auth";
@@ -362,6 +367,12 @@ function initNav() {
 }
 
 function goToSection(sec) {
+  // Desconectar listener de sueldos al salir de esa sección
+  if (sectionActual === "sueldos" && sec !== "sueldos" && sueldosRef) {
+    sueldosRef.off();
+    sueldosRef = null;
+  }
+
   document.querySelectorAll(".section").forEach(function(s)  { s.classList.remove("active"); });
   document.querySelectorAll(".menu-item").forEach(function(m) { m.classList.remove("active"); });
   document.getElementById("section-" + sec).classList.add("active");
@@ -370,7 +381,8 @@ function goToSection(sec) {
 
   var titles = {
     home:"Dashboard", objetivos:"Objetivos", facturas:"Facturas",
-    egresos:"Egresos", merma:"Merma", historial:"Historial", deudas:"Deudas"
+    egresos:"Egresos", merma:"Merma", historial:"Historial", deudas:"Deudas",
+    sueldos:"Sueldos"
   };
   document.getElementById("section-title").textContent = titles[sec] || sec;
 
@@ -380,20 +392,32 @@ function goToSection(sec) {
   if (sec === "merma")     renderMerma();
   if (sec === "historial") renderHistorial(periodHist);
   if (sec === "deudas")    renderDeudas();
+  if (sec === "sueldos")   initSueldos();
 }
 
 // ===================== SECCIÓN: HOME =====================
-function renderHome() {
-  var fecha    = fechaOperativa();
+function getFechasHome() {
+  if (periodHome === "7dias") return ultimosDias(7);
+  if (periodHome === "mes")   return diasDeMes(mesOperativo());
+  if (periodHome === "periodo") {
+    if (!periodHomeDesde || !periodHomeHasta) return [fechaOperativa()];
+    return Object.keys(allData).filter(function(f) {
+      return f >= periodHomeDesde && f <= periodHomeHasta;
+    }).sort();
+  }
+  return [fechaOperativa()];
+}
+
+function renderSucGrid(fechas) {
   var totalIng = 0, totalEg = 0;
-  var grid     = document.getElementById("suc-grid-home");
+  var grid = document.getElementById("suc-grid-home");
   grid.innerHTML = "";
 
   SUCURSALES.forEach(function(suc) {
-    var ing  = sumField(fecha, suc, "totalIngresos");
-    var eg   = sumField(fecha, suc, "totalEgresos");
-    var neto = ing - eg;
-    var regs = getRegs(fecha, suc);
+    var ing         = fechas.reduce(function(a, f) { return a + sumField(f, suc, "totalIngresos"); }, 0);
+    var eg          = fechas.reduce(function(a, f) { return a + sumField(f, suc, "totalEgresos");  }, 0);
+    var neto        = ing - eg;
+    var totalCargas = fechas.reduce(function(a, f) { return a + getRegs(f, suc).length; }, 0);
     totalIng += ing;
     totalEg  += eg;
 
@@ -405,7 +429,7 @@ function renderHome() {
       '<div class="suc-row"><span class="sr-label">Ingresos</span><span class="sr-val ing">' + fmtM(ing) + '</span></div>' +
       '<div class="suc-row"><span class="sr-label">Egresos</span><span class="sr-val eg">'   + fmtM(eg)  + '</span></div>' +
       '<div class="suc-row"><span class="sr-label">Neto</span><span class="sr-val" style="color:' + (neto >= 0 ? "var(--green)" : "var(--red)") + '">' + fmtM(neto) + '</span></div>' +
-      '<div class="sr-regs">' + regs.length + (regs.length === 1 ? " carga" : " cargas") + '</div>';
+      '<div class="sr-regs">' + totalCargas + (totalCargas === 1 ? " carga" : " cargas") + '</div>';
     grid.appendChild(card);
   });
 
@@ -415,10 +439,44 @@ function renderHome() {
   var elNet = document.getElementById("global-net");
   elNet.textContent = fmtM(neto);
   elNet.style.color = neto >= 0 ? "var(--green)" : "var(--red)";
+}
 
+function renderHome() {
+  renderSucGrid(getFechasHome());
   renderFeed();
   renderChartsHome();
   renderSemanal();
+}
+
+function initToggleHome() {
+  var periodoDiv = document.getElementById("home-periodo-filtro");
+  var inputDesde = document.getElementById("home-desde");
+  var inputHasta = document.getElementById("home-hasta");
+
+  var hoy = fechaOperativa();
+  periodHomeDesde  = hoy;
+  periodHomeHasta  = hoy;
+  inputDesde.value = hoy;
+  inputHasta.value = hoy;
+
+  document.getElementById("toggle-suc").addEventListener("click", function(e) {
+    var btn = e.target.closest(".toggle-btn");
+    if (!btn) return;
+    document.querySelectorAll("#toggle-suc .toggle-btn").forEach(function(b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    periodHome = btn.getAttribute("data-val");
+    periodoDiv.style.display = periodHome === "periodo" ? "flex" : "none";
+    renderSucGrid(getFechasHome());
+  });
+
+  inputDesde.addEventListener("change", function() {
+    periodHomeDesde = inputDesde.value;
+    renderSucGrid(getFechasHome());
+  });
+  inputHasta.addEventListener("change", function() {
+    periodHomeHasta = inputHasta.value;
+    renderSucGrid(getFechasHome());
+  });
 }
 
 function renderFeed() {
@@ -1239,6 +1297,34 @@ function renderHistorial(period) {
     }
   });
 
+  // Tabla de totales acumulados del mes actual
+  var diasMesAct   = diasDeMes(mesOperativo());
+  var totalesEl    = document.getElementById("hist-totales-mes");
+  var totGlobalMes = 0;
+  var totPorSuc    = SUCURSALES.map(function(suc) {
+    var t = diasMesAct.reduce(function(a, f) { return a + sumField(f, suc, "totalIngresos"); }, 0);
+    totGlobalMes += t;
+    return t;
+  });
+
+  var thRow = '<tr>';
+  SUCURSALES.forEach(function(suc) {
+    thRow += '<th style="color:' + COLORS[suc] + '">' + suc + '</th>';
+  });
+  thRow += '<th>TOTAL</th></tr>';
+
+  var tdRow = '<tr>';
+  totPorSuc.forEach(function(t) {
+    tdRow += '<td class="td-ing">' + (t ? fmtM(t) : '—') + '</td>';
+  });
+  tdRow += '<td class="td-ing" style="font-weight:700">' + fmtM(totGlobalMes) + '</td></tr>';
+
+  var tblMes = document.createElement("table");
+  tblMes.innerHTML = '<thead>' + thRow + '</thead><tbody>' + tdRow + '</tbody>';
+  totalesEl.innerHTML = "";
+  totalesEl.appendChild(tblMes);
+
+  // Tabla de días del período seleccionado
   var tabla = document.getElementById("hist-tabla");
   tabla.innerHTML = "";
   if (!fechas.length) { tabla.innerHTML = '<div class="empty-st">Sin datos para este período.</div>'; return; }
@@ -1692,6 +1778,186 @@ function renderDeudas() {
   });
 }
 
+// ===================== SECCIÓN: SUELDOS =====================
+function renderSueldos() {
+  var total    = allEmpleados.reduce(function(a, e) { return a + (e.sueldoBase || 0); }, 0);
+  var bannerEl = document.getElementById("sueldos-total-val");
+  if (bannerEl) bannerEl.textContent = fmtFull(total);
+
+  var tbody = document.getElementById("emp-tabla-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  if (!allEmpleados.length) {
+    tbody.innerHTML = "<tr><td colspan='7' class='fact-empty-row'>Sin empleados registrados.</td></tr>";
+    return;
+  }
+
+  allEmpleados.sort(function(a, b) { return (a.nombre || "").localeCompare(b.nombre || ""); });
+
+  allEmpleados.forEach(function(emp) {
+    var c  = COLORS[emp.sucursal] || "#888";
+    var tr = document.createElement("tr");
+    tr.innerHTML =
+      "<td class='emp-td-id'>"     + (emp.id     || "—") + "</td>" +
+      "<td class='emp-td-nombre'>" + (emp.nombre  || "—") + "</td>" +
+      "<td class='emp-td-dni'>"    + (emp.dni     || "—") + "</td>" +
+      "<td><span class='fact-suc-badge' style='color:" + c + "'>" + (emp.sucursal || "—") + "</span></td>" +
+      "<td class='emp-td-puesto'>" + (emp.puesto  || "—") + "</td>" +
+      "<td class='emp-td-sueldo'>" + fmtFull(emp.sueldoBase || 0) + "</td>" +
+      "<td class='emp-td-acc'>" +
+        "<button class='emp-btn-edit' data-id='" + emp._id + "'>✎</button>" +
+        "<button class='fact-btn-del' data-id='" + emp._id + "'>✕</button>" +
+      "</td>";
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll(".emp-btn-edit").forEach(function(btn) {
+    btn.addEventListener("click", function() { editarEmpleado(btn.getAttribute("data-id")); });
+  });
+  tbody.querySelectorAll(".fact-btn-del").forEach(function(btn) {
+    btn.addEventListener("click", function() { eliminarEmpleado(btn.getAttribute("data-id")); });
+  });
+}
+
+function guardarEmpleado() {
+  var id     = document.getElementById("emp-id").value.trim();
+  var nombre = document.getElementById("emp-nombre").value.trim();
+  var dni    = document.getElementById("emp-dni").value.trim();
+  var suc    = document.getElementById("emp-sucursal").value;
+  var puesto = document.getElementById("emp-puesto").value.trim();
+  var sueldo = parseFloat(document.getElementById("emp-sueldo").value) || 0;
+
+  if (!nombre) { alert("Ingresá el nombre."); return; }
+  if (!suc)    { alert("Seleccioná una sucursal."); return; }
+  if (!puesto) { alert("Ingresá el puesto."); return; }
+  if (!sueldo) { alert("Ingresá el sueldo base."); return; }
+
+  var btn = document.getElementById("btn-guardar-empleado");
+  btn.disabled    = true;
+  btn.textContent = "Verificando...";
+
+  pedirClaveAdmin().then(function(ok) {
+    if (!ok) {
+      btn.disabled    = false;
+      btn.textContent = "+ Agregar empleado";
+      return;
+    }
+    btn.textContent = "Guardando...";
+    firebase.database().ref("empleados").push({
+      id: id, nombre: nombre, dni: dni, sucursal: suc,
+      puesto: puesto, sueldoBase: sueldo, timestamp: Date.now()
+    })
+    .then(function() {
+      document.getElementById("emp-id").value      = "";
+      document.getElementById("emp-nombre").value  = "";
+      document.getElementById("emp-dni").value     = "";
+      document.getElementById("emp-sucursal").value = "";
+      document.getElementById("emp-puesto").value  = "";
+      document.getElementById("emp-sueldo").value  = "";
+    })
+    .catch(function(e) { alert("Error al guardar: " + e.message); })
+    .finally(function() { btn.disabled = false; btn.textContent = "+ Agregar empleado"; });
+  });
+}
+
+function editarEmpleado(id) {
+  var emp = allEmpleados.find(function(e) { return e._id === id; });
+  if (!emp) return;
+
+  var overlay   = document.getElementById("emp-edit-modal");
+  var saveBtn   = document.getElementById("emp-edit-save-btn");
+  var cancelBtn = document.getElementById("emp-edit-cancel-btn");
+  var errEl     = document.getElementById("emp-edit-error");
+
+  document.getElementById("emp-edit-id").value     = emp.id      || "";
+  document.getElementById("emp-edit-nombre").value = emp.nombre  || "";
+  document.getElementById("emp-edit-dni").value    = emp.dni     || "";
+  document.getElementById("emp-edit-suc").value    = emp.sucursal || "";
+  document.getElementById("emp-edit-puesto").value = emp.puesto  || "";
+  document.getElementById("emp-edit-sueldo").value = emp.sueldoBase || "";
+
+  errEl.classList.add("hidden");
+  saveBtn.disabled    = false;
+  saveBtn.textContent = "Guardar cambios";
+  overlay.classList.remove("hidden");
+
+  function cerrar() {
+    overlay.classList.add("hidden");
+    saveBtn.removeEventListener("click", guardar);
+    cancelBtn.removeEventListener("click", cerrar);
+  }
+
+  function guardar() {
+    var nombre = document.getElementById("emp-edit-nombre").value.trim();
+    var suc    = document.getElementById("emp-edit-suc").value;
+    var puesto = document.getElementById("emp-edit-puesto").value.trim();
+    var sueldo = parseFloat(document.getElementById("emp-edit-sueldo").value) || 0;
+
+    if (!nombre || !suc || !puesto || !sueldo) {
+      errEl.textContent = "Completá todos los campos obligatorios.";
+      errEl.classList.remove("hidden");
+      return;
+    }
+
+    saveBtn.disabled    = true;
+    saveBtn.textContent = "Guardando...";
+
+    firebase.database().ref("empleados/" + id).update({
+      id:         document.getElementById("emp-edit-id").value.trim(),
+      nombre:     nombre,
+      dni:        document.getElementById("emp-edit-dni").value.trim(),
+      sucursal:   suc,
+      puesto:     puesto,
+      sueldoBase: sueldo
+    })
+    .then(function() { cerrar(); })
+    .catch(function(e) {
+      errEl.textContent = "Error al guardar: " + e.message;
+      errEl.classList.remove("hidden");
+      saveBtn.disabled    = false;
+      saveBtn.textContent = "Guardar cambios";
+    });
+  }
+
+  saveBtn.addEventListener("click", guardar);
+  cancelBtn.addEventListener("click", cerrar);
+}
+
+function eliminarEmpleado(id) {
+  pedirClaveAdmin().then(function(ok) {
+    if (!ok) { alert("Clave incorrecta."); return; }
+    if (!confirm("¿Eliminar este empleado?")) return;
+    firebase.database().ref("empleados/" + id).remove();
+  });
+}
+
+function initSueldos() {
+  var content = document.getElementById("sueldos-content");
+
+  if (!adminAuthValida()) {
+    pedirClaveAdmin().then(function(ok) {
+      if (ok) initSueldos();
+    });
+    return;
+  }
+
+  content.style.display = "block";
+  document.getElementById("btn-guardar-empleado").onclick = guardarEmpleado;
+
+  if (sueldosRef) return; // listener ya activo, no duplicar
+  sueldosRef = firebase.database().ref("empleados");
+  sueldosRef.on("value", function(snap) {
+    allEmpleados = [];
+    if (snap.exists()) {
+      snap.forEach(function(child) {
+        allEmpleados.push(Object.assign({ _id: child.key }, child.val()));
+      });
+    }
+    renderSueldos();
+  });
+}
+
 function initDeudas() {
   document.getElementById("btn-guardar-deuda").addEventListener("click", guardarDeuda);
   firebase.database().ref("deudas").on("value", function(snap) {
@@ -1784,6 +2050,7 @@ function initApp() {
   initToggleParticipacion();
   initToggleEgresos();
   initToggleHist();
+  initToggleHome();
   initFirebase();
 }
 

@@ -1393,6 +1393,43 @@ body {
 #abono-modal-monto:focus    { border-color: var(--green); }
 #abono-modal-monto:disabled { cursor: not-allowed; }
 
+/* ===================== SUELDOS ===================== */
+.sueldos-total-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.sueldos-total-label { font-size: .65rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.sueldos-total-val   { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: 700; color: var(--red); }
+
+.emp-btn-edit {
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--muted2);
+  border-radius: 5px;
+  width: 28px; height: 24px;
+  cursor: pointer;
+  font-size: .78rem;
+  transition: all .2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+}
+.emp-btn-edit:hover { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+
+.emp-td-id     { font-family: 'JetBrains Mono', monospace; font-size: .75rem; color: var(--muted); }
+.emp-td-nombre { font-weight: 600; color: var(--text); }
+.emp-td-dni    { font-family: 'JetBrains Mono', monospace; font-size: .78rem; color: var(--muted2); white-space: nowrap; }
+.emp-td-puesto { color: var(--muted2); font-size: .8rem; }
+.emp-td-sueldo { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--green); white-space: nowrap; }
+.emp-td-acc    { white-space: nowrap; }
+
 /* ===================== RESPONSIVE ===================== */
 @media (max-width: 600px) {
   body          { font-size: 15px; }
