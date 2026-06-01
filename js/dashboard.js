@@ -71,7 +71,7 @@ var objetivosMesViendo = null;    // se inicializa en initObjetivosModal()
 var periodHome         = "hoy";
 var periodHomeDesde    = "";
 var periodHomeHasta    = "";
-var objetivosActuales  = Object.assign({}, OBJETIVOS_DEFAULT);
+var todosObjetivos     = {}; // { "YYYY-MM": { SUCURSAL: monto } }
 
 // ===================== AUTH DASHBOARD =====================
 var AUTH_KEY      = "vvglobal_dash_auth";
@@ -689,8 +689,8 @@ function calcDiasHabiles() {
 }
 
 function renderObjetivos(obj) {
-  if (!obj) obj = objetivosActuales;
-  var mes   = objetivosMesViendo || mesOperativo();
+  var mes = objetivosMesViendo || mesOperativo();
+  if (!obj) obj = todosObjetivos[mes] || Object.assign({}, OBJETIVOS_DEFAULT);
   var esActual = mes === mesOperativo();
 
   // Actualizar label del mes
@@ -836,7 +836,8 @@ function initObjetivosModal() {
   btnEdit.addEventListener("click", function() {
     pedirClaveAdmin().then(function(ok) {
       if (!ok) { alert("Clave incorrecta."); return; }
-      var obj = getObjetivos();
+      var mes = objetivosMesViendo || mesOperativo();
+      var obj = todosObjetivos[mes] || Object.assign({}, OBJETIVOS_DEFAULT);
       fields.innerHTML = "";
       SUCURSALES.forEach(function(suc) {
         var row = document.createElement("div");
@@ -856,13 +857,14 @@ function initObjetivosModal() {
   btnCancel.addEventListener("click", function() { modal.classList.add("hidden"); });
 
   btnSave.addEventListener("click", function() {
+    var mes = objetivosMesViendo || mesOperativo();
     var obj = {};
     SUCURSALES.forEach(function(suc) {
       obj[suc] = parseFloat(document.getElementById("obj-inp-" + suc).value) || 0;
     });
     btnSave.disabled    = true;
     btnSave.textContent = "Guardando...";
-    firebase.database().ref("config/objetivos").set(obj)
+    firebase.database().ref("config/objetivos/" + mes).set(obj)
       .then(function() { modal.classList.add("hidden"); })
       .catch(function(e) { alert("Error al guardar objetivos: " + e.message); })
       .finally(function() { btnSave.disabled = false; btnSave.textContent = "Guardar"; });
@@ -1989,7 +1991,7 @@ function initFirebase() {
     renderHome();
     // Recalcular efectivo acumulado con los registros actualizados
     renderCierreStrip(cierresSnapCache);
-    if (sectionActual === "objetivos") renderObjetivos(objetivosActuales);
+    if (sectionActual === "objetivos") renderObjetivos();
     if (sectionActual === "egresos")   renderEgresos(periodEgresos);
     if (sectionActual === "merma")     renderMerma();
     if (sectionActual === "historial") renderHistorial(periodHist);
@@ -2002,8 +2004,13 @@ function initFirebase() {
   });
 
   firebase.database().ref("config/objetivos").on("value", function(snap) {
-    objetivosActuales = snap.exists() ? snap.val() : Object.assign({}, OBJETIVOS_DEFAULT);
-    if (sectionActual === "objetivos") renderObjetivos(objetivosActuales);
+    todosObjetivos = {};
+    if (snap.exists()) {
+      snap.forEach(function(mesSnap) {
+        todosObjetivos[mesSnap.key] = mesSnap.val();
+      });
+    }
+    if (sectionActual === "objetivos") renderObjetivos();
   });
 
   firebase.database().ref("facturas").on("value", function(snap) {

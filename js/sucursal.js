@@ -1134,8 +1134,8 @@ function conectarFirebase(sucursal) {
       renderObjetivoSucursal(snapTotal);
     });
 
-    // Objetivo del mes desde Firebase (en lugar de localStorage)
-    objetivoRef = firebase.database().ref("config/objetivos/" + sucursal);
+    // Objetivo del mes desde Firebase — path por mes para aislar histórico
+    objetivoRef = firebase.database().ref("config/objetivos/" + mesOperativo() + "/" + sucursal);
     objetivoRef.on("value", function(snap) {
       metaObjetivo = snap.exists() ? (snap.val() || 0) : (OBJETIVOS_DEFAULT[sucursal] || 0);
       renderObjetivoSucursal(lastSnapTotal);
