@@ -49,8 +49,11 @@ var saldoRef          = null;
 var cierreRef         = null;  // cierre de hoy (para mostrar done-card)
 var cierresAllRef     = null;  // todos los cierres — para encontrar el último
 var connRef           = null;
+var objetivoRef       = null;  // config/objetivos/{sucursal}
 var saldoSistema      = 0;
 var saldoCierreUltimo = 0;     // contado del último cierre registrado
+var metaObjetivo      = 0;     // objetivo mensual de la sucursal, desde Firebase
+var lastSnapTotal     = null;  // cache del último snap de registros para re-renders
 
 // ===================== AUTH =====================
 function sucAuthValida(nombre) {
@@ -246,6 +249,7 @@ function cambiarSucursal() {
   if (cierreRef)     { cierreRef.off();     cierreRef     = null; }
   if (cierresAllRef) { cierresAllRef.off(); cierresAllRef = null; }
   if (connRef)       { connRef.off();       connRef       = null; }
+  if (objetivoRef)   { objetivoRef.off();   objetivoRef   = null; }
 
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(AUTH_SUC_KEY);
@@ -254,6 +258,8 @@ function cambiarSucursal() {
   mermaTemp       = [];
   registrosHist   = {};
   saldoSistema    = 0;
+  metaObjetivo    = 0;
+  lastSnapTotal   = null;
 
   document.getElementById("pantalla-carga").classList.add("hidden");
   document.getElementById("pantalla-seleccion").classList.remove("hidden");
@@ -684,12 +690,7 @@ function renderObjetivoSucursal(snapTotal) {
   var card = document.getElementById("obj-suc-card");
   if (!card || !sucursalActual) return;
 
-  var objetivos = {};
-  try {
-    var saved = localStorage.getItem("vvglobal_objetivos");
-    if (saved) objetivos = JSON.parse(saved);
-  } catch(e) {}
-  var meta = objetivos[sucursalActual] || OBJETIVOS_DEFAULT[sucursalActual] || 0;
+  var meta = metaObjetivo || OBJETIVOS_DEFAULT[sucursalActual] || 0;
 
   var mesActual = fechaOperativa().slice(0, 7);
   var acum = 0;
@@ -1083,6 +1084,7 @@ function conectarFirebase(sucursal) {
   if (cierreRef)     { cierreRef.off();     cierreRef     = null; }
   if (cierresAllRef) { cierresAllRef.off(); cierresAllRef = null; }
   if (connRef)       { connRef.off();       connRef       = null; }
+  if (objetivoRef)   { objetivoRef.off();   objetivoRef   = null; }
 
   try {
     // Registros de hoy — resumen del día
@@ -1105,6 +1107,8 @@ function conectarFirebase(sucursal) {
     // Registros históricos + saldo del día + objetivo
     saldoRef = firebase.database().ref("registros");
     saldoRef.on("value", function(snapTotal) {
+      lastSnapTotal = snapTotal; // cachear para re-renders por cambio de objetivo
+
       // Historial: últimos 3 días hábiles
       var diasHist = ultimos3DiasHabiles();
       registrosHist = {};
@@ -1128,6 +1132,13 @@ function conectarFirebase(sucursal) {
       var sistemaEl = document.getElementById("cierre-saldo-sistema");
       if (sistemaEl) sistemaEl.textContent = fmt(saldoSistema);
       renderObjetivoSucursal(snapTotal);
+    });
+
+    // Objetivo del mes desde Firebase (en lugar de localStorage)
+    objetivoRef = firebase.database().ref("config/objetivos/" + sucursal);
+    objetivoRef.on("value", function(snap) {
+      metaObjetivo = snap.exists() ? (snap.val() || 0) : (OBJETIVOS_DEFAULT[sucursal] || 0);
+      renderObjetivoSucursal(lastSnapTotal);
     });
 
     // Todos los cierres de esta sucursal — busca el último registrado

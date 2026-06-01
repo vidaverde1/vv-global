@@ -71,6 +71,7 @@ var objetivosMesViendo = null;    // se inicializa en initObjetivosModal()
 var periodHome         = "hoy";
 var periodHomeDesde    = "";
 var periodHomeHasta    = "";
+var objetivosActuales  = Object.assign({}, OBJETIVOS_DEFAULT);
 
 // ===================== AUTH DASHBOARD =====================
 var AUTH_KEY      = "vvglobal_dash_auth";
@@ -266,13 +267,6 @@ function fmtM(n) {
 function fmtFull(n) {
   if (!n && n !== 0) return "—";
   return "$" + Number(n).toLocaleString("es-AR");
-}
-
-function getObjetivos() {
-  try {
-    var saved = localStorage.getItem("vvglobal_objetivos");
-    return saved ? JSON.parse(saved) : Object.assign({}, OBJETIVOS_DEFAULT);
-  } catch(e) { return Object.assign({}, OBJETIVOS_DEFAULT); }
 }
 
 // ===================== HELPERS FIREBASE =====================
@@ -694,8 +688,8 @@ function calcDiasHabiles() {
   return { transcurridos: transcurridos, restantes: restantes, totales: totales };
 }
 
-function renderObjetivos() {
-  var obj   = getObjetivos();
+function renderObjetivos(obj) {
+  if (!obj) obj = objetivosActuales;
   var mes   = objetivosMesViendo || mesOperativo();
   var esActual = mes === mesOperativo();
 
@@ -866,9 +860,12 @@ function initObjetivosModal() {
     SUCURSALES.forEach(function(suc) {
       obj[suc] = parseFloat(document.getElementById("obj-inp-" + suc).value) || 0;
     });
-    localStorage.setItem("vvglobal_objetivos", JSON.stringify(obj));
-    modal.classList.add("hidden");
-    renderObjetivos();
+    btnSave.disabled    = true;
+    btnSave.textContent = "Guardando...";
+    firebase.database().ref("config/objetivos").set(obj)
+      .then(function() { modal.classList.add("hidden"); })
+      .catch(function(e) { alert("Error al guardar objetivos: " + e.message); })
+      .finally(function() { btnSave.disabled = false; btnSave.textContent = "Guardar"; });
   });
 }
 
@@ -1992,7 +1989,7 @@ function initFirebase() {
     renderHome();
     // Recalcular efectivo acumulado con los registros actualizados
     renderCierreStrip(cierresSnapCache);
-    if (sectionActual === "objetivos") renderObjetivos();
+    if (sectionActual === "objetivos") renderObjetivos(objetivosActuales);
     if (sectionActual === "egresos")   renderEgresos(periodEgresos);
     if (sectionActual === "merma")     renderMerma();
     if (sectionActual === "historial") renderHistorial(periodHist);
@@ -2002,6 +1999,11 @@ function initFirebase() {
   firebase.database().ref("cierres").on("value", function(cierresSnap) {
     cierresSnapCache = cierresSnap;
     renderCierreStrip(cierresSnap);
+  });
+
+  firebase.database().ref("config/objetivos").on("value", function(snap) {
+    objetivosActuales = snap.exists() ? snap.val() : Object.assign({}, OBJETIVOS_DEFAULT);
+    if (sectionActual === "objetivos") renderObjetivos(objetivosActuales);
   });
 
   firebase.database().ref("facturas").on("value", function(snap) {
