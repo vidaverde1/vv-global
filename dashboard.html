@@ -54,6 +54,7 @@
       <li class="menu-item" data-section="merma"><span class="menu-icon">◫</span>Merma</li>
       <li class="menu-item" data-section="historial"><span class="menu-icon">◷</span>Historial</li>
       <li class="menu-item" data-section="sueldos"><span class="menu-icon">◉</span>Sueldos</li>
+      <li class="menu-item" data-section="proveedores"><span class="menu-icon">◩</span>Proveedores</li>
     </ul>
     <div class="sidebar-footer">
       <span class="live-dot"></span><span>En vivo · Firebase</span>
@@ -539,6 +540,42 @@
           </table>
         </div>
 
+      </div>
+    </section>
+
+    <!-- PROVEEDORES -->
+    <section class="section" id="section-proveedores">
+      <div class="section-top-row">
+        <div class="section-desc">Base de proveedores unificada, extraída de las facturas cargadas</div>
+        <input type="text" id="prov-buscar" placeholder="Buscar..." class="fact-filtro-input" style="width:200px">
+      </div>
+
+      <div id="prov-sugerencias-wrap" style="display:none">
+        <div class="block-title">Sugerencias de unificación</div>
+        <p class="prov-section-desc">Nombres similares detectados — puede ser el mismo proveedor escrito de formas distintas.</p>
+        <div id="prov-sugerencias-lista"></div>
+      </div>
+
+      <div id="prov-nuevos-wrap" style="display:none">
+        <div class="block-title">Nombres sin clasificar</div>
+        <p class="prov-section-desc">Aparecen en facturas pero todavía no fueron asignados a ningún proveedor.</p>
+        <div id="prov-nuevos-lista"></div>
+      </div>
+
+      <div class="block-title">Proveedores</div>
+      <div id="prov-lista"><div class="empty-state" style="padding:40px 0">Cargando proveedores...</div></div>
+
+      <!-- Modal acciones proveedores -->
+      <div class="admin-modal-overlay hidden" id="prov-modal">
+        <div class="db-login-card prov-modal-card">
+          <div class="prov-modal-eyebrow">Proveedores</div>
+          <div class="db-login-sub" id="prov-modal-titulo" style="font-size:1rem;font-weight:600;color:var(--text);margin-bottom:0;text-align:left"></div>
+          <div id="prov-modal-cuerpo" style="margin-top:18px"></div>
+          <div style="display:flex;gap:8px;margin-top:22px">
+            <button class="admin-modal-cancel" id="prov-modal-cancel" style="margin:0;flex:1">Cancelar</button>
+            <button class="db-login-btn" id="prov-modal-ok" style="margin:0;flex:2">Confirmar</button>
+          </div>
+        </div>
       </div>
     </section>
 

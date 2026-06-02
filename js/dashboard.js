@@ -61,6 +61,8 @@ var allFacturas       = [];
 var allDeudas         = [];
 var allEmpleados      = [];
 var sueldosRef        = null;
+var allProveedores    = [];
+var provRef           = null;
 var charts            = {};
 var sectionActual     = "home";
 var periodEgresos     = "hoy";
@@ -376,17 +378,18 @@ function goToSection(sec) {
   var titles = {
     home:"Dashboard", objetivos:"Objetivos", facturas:"Facturas",
     egresos:"Egresos", merma:"Merma", historial:"Historial", deudas:"Deudas",
-    sueldos:"Sueldos"
+    sueldos:"Sueldos", proveedores:"Proveedores"
   };
   document.getElementById("section-title").textContent = titles[sec] || sec;
 
-  if (sec === "objetivos") renderObjetivos();
-  if (sec === "facturas")  renderFacturas();
-  if (sec === "egresos")   renderEgresos(periodEgresos);
-  if (sec === "merma")     renderMerma();
-  if (sec === "historial") renderHistorial(periodHist);
-  if (sec === "deudas")    renderDeudas();
-  if (sec === "sueldos")   initSueldos();
+  if (sec === "objetivos")   renderObjetivos();
+  if (sec === "facturas")    renderFacturas();
+  if (sec === "egresos")     renderEgresos(periodEgresos);
+  if (sec === "merma")       renderMerma();
+  if (sec === "historial")   renderHistorial(periodHist);
+  if (sec === "deudas")      renderDeudas();
+  if (sec === "sueldos")     initSueldos();
+  if (sec === "proveedores") renderProveedores();
 }
 
 // ===================== SECCIÓN: HOME =====================
@@ -2020,23 +2023,371 @@ function initFirebase() {
         allFacturas.push(Object.assign({ _id: child.key }, child.val()));
       });
     }
-    // Autocompletado: proveedores y números únicos ordenados
-    var proveedores = [], numeros = [];
-    allFacturas.forEach(function(f) {
-      if (f.proveedor && proveedores.indexOf(f.proveedor) === -1) proveedores.push(f.proveedor);
-      if (f.numero    && numeros.indexOf(f.numero)       === -1) numeros.push(f.numero);
-    });
-    proveedores.sort(); numeros.sort();
-    var dlProv = document.getElementById("proveedores-list");
-    if (dlProv) dlProv.innerHTML = proveedores.map(function(p) {
-      return '<option value="' + p.replace(/"/g, '&quot;') + '">';
-    }).join("");
+    updateProveedoresDatalist();
     var dlNum = document.getElementById("numeros-list");
-    if (dlNum) dlNum.innerHTML = numeros.map(function(n) {
-      return '<option value="' + n.replace(/"/g, '&quot;') + '">';
-    }).join("");
-    if (sectionActual === "facturas") renderFacturas();
+    if (dlNum) {
+      var numeros = [];
+      allFacturas.forEach(function(f) {
+        if (f.numero && numeros.indexOf(f.numero) === -1) numeros.push(f.numero);
+      });
+      numeros.sort();
+      dlNum.innerHTML = numeros.map(function(n) {
+        return '<option value="' + n.replace(/"/g, '&quot;') + '">';
+      }).join("");
+    }
+    if (sectionActual === "facturas")    renderFacturas();
+    if (sectionActual === "proveedores") renderProveedores();
   });
+}
+
+// ===================== SECCIÓN: PROVEEDORES =====================
+function normalizarProv(s) {
+  return (s || "")
+    .toLowerCase()
+    .replace(/[.,\-']/g, "")
+    .replace(/\b(srl|sa|sac|sacif|sas|srlu|sl|inc|corp|ltda?)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function levenshtein(a, b) {
+  var m = a.length, n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  var prev = [], curr = [];
+  for (var j = 0; j <= n; j++) prev[j] = j;
+  for (var i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (var j = 1; j <= n; j++) {
+      curr[j] = a[i-1] === b[j-1] ? prev[j-1]
+        : 1 + Math.min(prev[j], curr[j-1], prev[j-1]);
+    }
+    prev = curr.slice();
+  }
+  return prev[n];
+}
+
+function buildProvLookup() {
+  var lookup = {};
+  allProveedores.forEach(function(p) {
+    (p.variantes || []).forEach(function(v) {
+      lookup[v.toLowerCase()] = p._id;
+    });
+  });
+  return lookup;
+}
+
+function getUniqueRawNames() {
+  var seen = {}, names = [];
+  allFacturas.forEach(function(f) {
+    if (!f.proveedor) return;
+    var key = f.proveedor.toLowerCase();
+    if (!seen[key]) { seen[key] = true; names.push(f.proveedor); }
+  });
+  return names;
+}
+
+function getProvStats(variantes) {
+  var varSet = {};
+  (variantes || []).forEach(function(v) { varSet[v.toLowerCase()] = true; });
+  var count = 0, total = 0;
+  allFacturas.forEach(function(f) {
+    if (f.proveedor && varSet[f.proveedor.toLowerCase()]) {
+      count++; total += (f.monto || 0);
+    }
+  });
+  return { count: count, total: total };
+}
+
+function getCountForRaw(rawName) {
+  var key = rawName.toLowerCase();
+  return allFacturas.filter(function(f) {
+    return f.proveedor && f.proveedor.toLowerCase() === key;
+  }).length;
+}
+
+function findSugerencias(unmatched) {
+  var normed = unmatched.map(normalizarProv);
+  var pairs = [], used = {};
+  for (var i = 0; i < unmatched.length; i++) {
+    if (used[i] || !normed[i] || normed[i].length < 4) continue;
+    for (var j = i + 1; j < unmatched.length; j++) {
+      if (used[j] || !normed[j] || normed[j].length < 4) continue;
+      var d = levenshtein(normed[i], normed[j]);
+      if (d <= 2) {
+        pairs.push([unmatched[i], unmatched[j]]);
+        used[i] = true; used[j] = true;
+        break;
+      }
+    }
+  }
+  return pairs;
+}
+
+function updateProveedoresDatalist() {
+  var dl = document.getElementById("proveedores-list");
+  if (!dl) return;
+  var nombres = {};
+  allProveedores.forEach(function(p) { if (p.nombre) nombres[p.nombre] = true; });
+  var lookup = buildProvLookup();
+  allFacturas.forEach(function(f) {
+    if (f.proveedor && !lookup[f.proveedor.toLowerCase()]) nombres[f.proveedor] = true;
+  });
+  var sorted = Object.keys(nombres).sort();
+  dl.innerHTML = sorted.map(function(n) {
+    return '<option value="' + n.replace(/"/g, "&quot;") + '">';
+  }).join("");
+}
+
+function renderProveedores() {
+  if (sectionActual !== "proveedores") return;
+
+  var buscar  = (document.getElementById("prov-buscar").value || "").toLowerCase().trim();
+  var lookup  = buildProvLookup();
+  var rawAll  = getUniqueRawNames();
+
+  var unmatched = rawAll.filter(function(n) { return !lookup[n.toLowerCase()]; });
+  var sugerencias = findSugerencias(unmatched);
+  var sugeridosSet = {};
+  sugerencias.forEach(function(pair) {
+    sugeridosSet[pair[0].toLowerCase()] = true;
+    sugeridosSet[pair[1].toLowerCase()] = true;
+  });
+  var sinClasificar = unmatched.filter(function(n) { return !sugeridosSet[n.toLowerCase()]; });
+
+  // --- Sugerencias ---
+  var sugWrap  = document.getElementById("prov-sugerencias-wrap");
+  var sugLista = document.getElementById("prov-sugerencias-lista");
+  if (sugerencias.length) {
+    sugWrap.style.display = "";
+    sugLista.innerHTML = "";
+    sugerencias.forEach(function(pair) {
+      var card = document.createElement("div");
+      card.className = "prov-sug-card";
+      card.innerHTML =
+        '<div class="prov-sug-nombres">' +
+          '<span class="prov-sug-name">' + pair[0] + '</span>' +
+          '<span class="prov-sug-badge">' + getCountForRaw(pair[0]) + '</span>' +
+          '<span class="prov-sug-sep">·</span>' +
+          '<span class="prov-sug-name">' + pair[1] + '</span>' +
+          '<span class="prov-sug-badge">' + getCountForRaw(pair[1]) + '</span>' +
+        '</div>' +
+        '<button class="prov-btn-unif" data-a="' + encodeURIComponent(pair[0]) + '" data-b="' + encodeURIComponent(pair[1]) + '">Unificar</button>';
+      sugLista.appendChild(card);
+    });
+    sugLista.querySelectorAll(".prov-btn-unif").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        abrirModalUnificar(
+          decodeURIComponent(btn.getAttribute("data-a")),
+          decodeURIComponent(btn.getAttribute("data-b"))
+        );
+      });
+    });
+  } else {
+    sugWrap.style.display = "none";
+  }
+
+  // --- Sin clasificar ---
+  var nuevosWrap  = document.getElementById("prov-nuevos-wrap");
+  var nuevosLista = document.getElementById("prov-nuevos-lista");
+  var filtradosSin = buscar
+    ? sinClasificar.filter(function(n) { return n.toLowerCase().includes(buscar); })
+    : sinClasificar;
+  if (filtradosSin.length) {
+    nuevosWrap.style.display = "";
+    nuevosLista.innerHTML = "";
+    filtradosSin.forEach(function(raw) {
+      var chip = document.createElement("div");
+      chip.className = "prov-nuevo-chip";
+      chip.innerHTML =
+        '<span class="prov-nuevo-name">' + raw + '</span>' +
+        '<span class="prov-sug-badge">' + getCountForRaw(raw) + ' fact.</span>' +
+        '<button class="prov-btn-asig" data-raw="' + encodeURIComponent(raw) + '">Asignar a existente</button>' +
+        '<button class="prov-btn-crear" data-raw="' + encodeURIComponent(raw) + '">+ Crear proveedor</button>';
+      nuevosLista.appendChild(chip);
+    });
+    nuevosLista.querySelectorAll(".prov-btn-crear").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        crearProveedorDesdeRaw(decodeURIComponent(btn.getAttribute("data-raw")));
+      });
+    });
+    nuevosLista.querySelectorAll(".prov-btn-asig").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        abrirModalAsignar(decodeURIComponent(btn.getAttribute("data-raw")));
+      });
+    });
+  } else {
+    nuevosWrap.style.display = "none";
+  }
+
+  // --- Lista confirmada ---
+  var lista = document.getElementById("prov-lista");
+  var provFiltrados = buscar
+    ? allProveedores.filter(function(p) {
+        return p.nombre.toLowerCase().includes(buscar) ||
+          (p.variantes || []).some(function(v) { return v.toLowerCase().includes(buscar); });
+      })
+    : allProveedores.slice();
+  provFiltrados.sort(function(a, b) { return a.nombre.localeCompare(b.nombre); });
+
+  if (!provFiltrados.length) {
+    lista.innerHTML = '<div class="empty-state">' +
+      (allProveedores.length === 0
+        ? 'No hay proveedores aún. Clasificá los nombres del historial para armar la base.'
+        : 'No hay proveedores que coincidan con la búsqueda.') +
+      '</div>';
+    return;
+  }
+
+  lista.innerHTML = "";
+  provFiltrados.forEach(function(p) {
+    var stats      = getProvStats(p.variantes);
+    var card       = document.createElement("div");
+    card.className = "prov-card";
+    var variasHtml = (p.variantes || []).map(function(v) {
+      return '<span class="prov-var-chip" data-pid="' + p._id + '" data-v="' + encodeURIComponent(v) + '">' +
+        v + ' <button class="prov-var-del" title="Quitar variante">✕</button></span>';
+    }).join("");
+    card.innerHTML =
+      '<div class="prov-card-header">' +
+        '<div class="prov-card-nombre">' + p.nombre + '</div>' +
+        '<div class="prov-card-acciones">' +
+          '<button class="prov-btn-edit" data-id="' + p._id + '">✎ Renombrar</button>' +
+          '<button class="prov-btn-del" data-id="' + p._id + '" title="Eliminar proveedor">✕</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="prov-card-stats">' +
+        '<span>' + stats.count + ' factura' + (stats.count !== 1 ? 's' : '') + '</span>' +
+        '<span class="prov-stats-sep">·</span>' +
+        '<span>' + fmtFull(stats.total) + '</span>' +
+      '</div>' +
+      '<div class="prov-card-variantes">' + variasHtml + '</div>';
+    lista.appendChild(card);
+  });
+
+  lista.querySelectorAll(".prov-btn-edit").forEach(function(btn) {
+    btn.addEventListener("click", function() { abrirModalRenombrar(btn.getAttribute("data-id")); });
+  });
+  lista.querySelectorAll(".prov-btn-del").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var p = allProveedores.find(function(x) { return x._id === btn.getAttribute("data-id"); });
+      if (!p || !confirm('¿Eliminar "' + p.nombre + '"? Sus variantes quedarán sin clasificar.')) return;
+      firebase.database().ref("config/proveedores/" + p._id).remove();
+    });
+  });
+  lista.querySelectorAll(".prov-var-del").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      var chip = btn.closest("[data-pid]");
+      var pid  = chip.getAttribute("data-pid");
+      var v    = decodeURIComponent(chip.getAttribute("data-v"));
+      var p    = allProveedores.find(function(x) { return x._id === pid; });
+      if (!p || !confirm('¿Quitar "' + v + '" de las variantes de "' + p.nombre + '"?')) return;
+      var nuevas = (p.variantes || []).filter(function(x) { return x !== v; });
+      firebase.database().ref("config/proveedores/" + pid + "/variantes").set(nuevas);
+    });
+  });
+}
+
+// ----- Acciones sobre proveedores -----
+function abrirProvModal(titulo, html, onOk) {
+  var modal  = document.getElementById("prov-modal");
+  var titulo_ = document.getElementById("prov-modal-titulo");
+  var cuerpo = document.getElementById("prov-modal-cuerpo");
+  titulo_.textContent = titulo;
+  cuerpo.innerHTML    = html;
+  modal.classList.remove("hidden");
+
+  var btnOk  = document.getElementById("prov-modal-ok");
+  var btnCan = document.getElementById("prov-modal-cancel");
+  var newOk  = btnOk.cloneNode(true);
+  var newCan = btnCan.cloneNode(true);
+  btnOk.parentNode.replaceChild(newOk, btnOk);
+  btnCan.parentNode.replaceChild(newCan, btnCan);
+
+  newCan.addEventListener("click", function() { modal.classList.add("hidden"); });
+  newOk.addEventListener("click", function() { if (onOk() !== false) modal.classList.add("hidden"); });
+}
+
+function abrirModalUnificar(nameA, nameB) {
+  abrirProvModal("Unificar proveedores",
+    '<p class="prov-modal-desc">¿Cuál es el nombre canónico para este proveedor?</p>' +
+    '<div class="prov-radio-group">' +
+      '<label class="prov-radio-row"><input type="radio" name="prov-canon" value="' + nameA + '" checked> ' + nameA + '</label>' +
+      '<label class="prov-radio-row"><input type="radio" name="prov-canon" value="' + nameB + '"> ' + nameB + '</label>' +
+      '<label class="prov-radio-row"><input type="radio" name="prov-canon" value="__custom__"> Personalizado: ' +
+        '<input type="text" id="prov-canon-custom" placeholder="Escribí el nombre" onclick="this.previousElementSibling.checked=true" class="prov-text-inline">' +
+      '</label>' +
+    '</div>',
+    function() {
+      var sel = document.querySelector('input[name="prov-canon"]:checked');
+      if (!sel) return false;
+      var canonical = sel.value === "__custom__"
+        ? (document.getElementById("prov-canon-custom").value.trim())
+        : sel.value;
+      if (!canonical) { alert("Ingresá un nombre para el proveedor."); return false; }
+      firebase.database().ref("config/proveedores").push({ nombre: canonical, variantes: [nameA, nameB] });
+    }
+  );
+}
+
+function abrirModalAsignar(rawName) {
+  var opts = allProveedores
+    .slice().sort(function(a, b) { return a.nombre.localeCompare(b.nombre); })
+    .map(function(p) { return '<option value="' + p._id + '">' + p.nombre + '</option>'; }).join("");
+  abrirProvModal('Asignar "' + rawName + '"',
+    '<p class="prov-modal-desc">Seleccioná a qué proveedor pertenece este nombre:</p>' +
+    '<div class="select-wrap-dark"><select id="prov-asig-select">' +
+      '<option value="">— Seleccioná proveedor —</option>' + opts +
+    '</select></div>',
+    function() {
+      var sel = document.getElementById("prov-asig-select").value;
+      if (!sel) { alert("Seleccioná un proveedor."); return false; }
+      var p = allProveedores.find(function(x) { return x._id === sel; });
+      if (!p) return false;
+      var nuevas = (p.variantes || []).concat([rawName]);
+      firebase.database().ref("config/proveedores/" + sel + "/variantes").set(nuevas);
+    }
+  );
+}
+
+function abrirModalRenombrar(provId) {
+  var p = allProveedores.find(function(x) { return x._id === provId; });
+  if (!p) return;
+  abrirProvModal("Renombrar proveedor",
+    '<p class="prov-modal-desc">Nuevo nombre canónico:</p>' +
+    '<input type="text" id="prov-rename-input" value="' + p.nombre + '" class="prov-text-full">',
+    function() {
+      var nuevo = document.getElementById("prov-rename-input").value.trim();
+      if (!nuevo) { alert("Ingresá un nombre."); return false; }
+      firebase.database().ref("config/proveedores/" + provId + "/nombre").set(nuevo);
+    }
+  );
+  setTimeout(function() {
+    var el = document.getElementById("prov-rename-input");
+    if (el) { el.focus(); el.select(); }
+  }, 100);
+}
+
+function crearProveedorDesdeRaw(rawName) {
+  firebase.database().ref("config/proveedores").push({ nombre: rawName, variantes: [rawName] });
+}
+
+function initProveedores() {
+  if (provRef) { provRef.off(); provRef = null; }
+  provRef = firebase.database().ref("config/proveedores");
+  provRef.on("value", function(snap) {
+    allProveedores = [];
+    if (snap.exists()) {
+      snap.forEach(function(child) {
+        allProveedores.push(Object.assign({ _id: child.key }, child.val()));
+      });
+    }
+    updateProveedoresDatalist();
+    if (sectionActual === "proveedores") renderProveedores();
+  });
+
+  document.getElementById("prov-buscar").addEventListener("input", renderProveedores);
 }
 
 // ===================== INIT =====================
@@ -2061,6 +2412,7 @@ function initApp() {
   initToggleHist();
   initToggleHome();
   initFirebase();
+  initProveedores();
 }
 
 document.addEventListener("DOMContentLoaded", function() {
