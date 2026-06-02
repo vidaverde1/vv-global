@@ -91,6 +91,10 @@ function fechaOperativa() {
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
 }
 
+function mesOperativo() {
+  return fechaOperativa().slice(0, 7);
+}
+
 function showToast(msg, tipo) {
   var t = document.getElementById("toast");
   t.textContent = msg;
