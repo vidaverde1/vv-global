@@ -74,6 +74,10 @@ var periodHome         = "hoy";
 var periodHomeDesde    = "";
 var periodHomeHasta    = "";
 var todosObjetivos     = {}; // { "YYYY-MM": { SUCURSAL: monto } }
+var sueldosSortCol     = "nombre";
+var sueldosSortDir     = "asc";
+var sueldosInitedOnce  = false;
+var historialMesViendo = null;
 
 // ===================== AUTH DASHBOARD =====================
 var AUTH_KEY      = "vvglobal_dash_auth";
@@ -326,13 +330,18 @@ function ultimosDias(n) {
   for (var i = n - 1; i >= 0; i--) {
     var d = new Date();
     d.setDate(d.getDate() - i);
-    days.push(d.toISOString().slice(0, 10));
+    days.push(localDateStr(d));
   }
   return days;
 }
 
 function getMermaRegs(fecha, suc) {
   return getRegs(fecha, suc).filter(function(r) { return r.tipo === "merma"; });
+}
+
+// Local-timezone date string — avoids toISOString() UTC offset bugs in negative timezones
+function localDateStr(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
 
 // ===================== NAVEGACIÓN =====================
@@ -439,9 +448,10 @@ function renderSucGrid(fechas) {
 }
 
 function renderHome() {
-  renderSucGrid(getFechasHome());
+  var fechas = getFechasHome();
+  renderSucGrid(fechas);
   renderFeed();
-  renderChartsHome();
+  renderChartsHome(fechas);
   renderSemanal();
 }
 
@@ -456,6 +466,12 @@ function initToggleHome() {
   inputDesde.value = hoy;
   inputHasta.value = hoy;
 
+  function applyPeriodHome() {
+    var fechas = getFechasHome();
+    renderSucGrid(fechas);
+    renderChartsHome(fechas);
+  }
+
   document.getElementById("toggle-suc").addEventListener("click", function(e) {
     var btn = e.target.closest(".toggle-btn");
     if (!btn) return;
@@ -463,35 +479,59 @@ function initToggleHome() {
     btn.classList.add("active");
     periodHome = btn.getAttribute("data-val");
     periodoDiv.style.display = periodHome === "periodo" ? "flex" : "none";
-    renderSucGrid(getFechasHome());
+    applyPeriodHome();
   });
 
   inputDesde.addEventListener("change", function() {
     periodHomeDesde = inputDesde.value;
-    renderSucGrid(getFechasHome());
+    applyPeriodHome();
   });
   inputHasta.addEventListener("change", function() {
     periodHomeHasta = inputHasta.value;
-    renderSucGrid(getFechasHome());
+    applyPeriodHome();
   });
 }
 
 function renderFeed() {
-  var container = document.getElementById("feed-home");
-  var todos     = [];
+  var container  = document.getElementById("feed-home");
+  var filtroTipo = ((document.getElementById("feed-filtro-tipo") || {}).value) || "";
+  var filtroSuc  = ((document.getElementById("feed-filtro-suc")  || {}).value) || "";
+  var todos      = [];
 
   Object.keys(allData).forEach(function(fecha) {
     Object.keys(allData[fecha]).forEach(function(suc) {
       allData[fecha][suc].forEach(function(r) {
-        todos.push(Object.assign({}, r, { _fecha: fecha }));
+        todos.push(Object.assign({}, r, { _fecha: fecha, sucursal: r.sucursal || suc }));
       });
     });
   });
-  todos.sort(function(a, b) { return b.timestamp - a.timestamp; });
 
-  var ultimos = todos.slice(0, 15);
+  // Include cierres from cache
+  if (cierresSnapCache && cierresSnapCache.exists()) {
+    cierresSnapCache.forEach(function(daySnap) {
+      var fecha = daySnap.key;
+      daySnap.forEach(function(sucSnap) {
+        var suc = sucSnap.key;
+        var d   = sucSnap.val();
+        if (d && d.timestamp) {
+          todos.push({
+            tipo: "cierre", sucursal: suc, _fecha: fecha,
+            timestamp: d.timestamp, contado: d.contado,
+            diferencia: d.diferencia, nota: d.nota
+          });
+        }
+      });
+    });
+  }
+
+  todos.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
+
+  if (filtroTipo) todos = todos.filter(function(r) { return r.tipo === filtroTipo; });
+  if (filtroSuc)  todos = todos.filter(function(r) { return (r.sucursal || "") === filtroSuc; });
+
+  var ultimos = todos.slice(0, 30);
   if (!ultimos.length) {
-    container.innerHTML = '<div class="empty-st">Sin registros todavía.</div>';
+    container.innerHTML = '<div class="empty-st">Sin registros' + (filtroTipo || filtroSuc ? ' para los filtros aplicados.' : ' todavía.') + '</div>';
     return;
   }
 
@@ -500,7 +540,8 @@ function renderFeed() {
     var ts   = new Date(r.timestamp);
     var hora = ts.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
     var fdia = ts.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
-    var c    = COLORS[r.sucursal] || "#888";
+    var suc  = r.sucursal || "";
+    var c    = COLORS[suc] || "#888";
     var div  = document.createElement("div");
     div.className = "feed-item";
 
@@ -508,7 +549,11 @@ function renderFeed() {
     if (r.tipo === "merma") {
       numsHtml = '<span class="feed-badge-tipo feed-merma">📦 Merma · ' + fmtM(r.totalMerma || 0) + '</span>';
     } else if (r.tipo === "cierre") {
-      numsHtml = '<span class="feed-badge-tipo feed-cierre">🔒 Cierre</span>';
+      var dif      = r.diferencia || 0;
+      var difColor = dif >= 0 ? "var(--green)" : "var(--red)";
+      var difStr   = (dif >= 0 ? "+" : "−") + fmtM(Math.abs(dif));
+      numsHtml = '<span class="feed-badge-tipo feed-cierre">🔒 Cierre · ' + fmtM(r.contado || 0) +
+        (r.diferencia != null ? ' <span style="color:' + difColor + ';font-size:.75rem">(' + difStr + ')</span>' : '') + '</span>';
     } else {
       var ing = regIngresos(r);
       var eg  = regEgresos(r);
@@ -520,7 +565,7 @@ function renderFeed() {
     }
 
     div.innerHTML =
-      '<div class="feed-suc" style="background:' + c + '20;color:' + c + '">' + r.sucursal + '</div>' +
+      '<div class="feed-suc" style="background:' + c + '20;color:' + c + '">' + suc + '</div>' +
       '<div class="feed-info">' +
         '<span class="feed-time">' + fdia + ' ' + hora + '</span>' +
         (r.nota ? '<span class="feed-nota">' + r.nota + '</span>' : '') +
@@ -530,14 +575,33 @@ function renderFeed() {
   });
 }
 
-// ===================== SECCIÓN: CHARTS HOME =====================
-function renderChartsHome() {
-  var mes  = mesOperativo();
-  var dias = diasDeMes(mes);
+function initFeedFilters() {
+  var tipSel  = document.getElementById("feed-filtro-tipo");
+  var sucSel  = document.getElementById("feed-filtro-suc");
+  var clearBtn = document.getElementById("feed-filtro-clear");
+  if (tipSel)  tipSel.addEventListener("change", renderFeed);
+  if (sucSel)  sucSel.addEventListener("change", renderFeed);
+  if (clearBtn) clearBtn.addEventListener("click", function() {
+    if (tipSel) tipSel.value = "";
+    if (sucSel) sucSel.value = "";
+    renderFeed();
+  });
+}
 
-  var mesLabel     = new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" }).toUpperCase();
+// ===================== SECCIÓN: CHARTS HOME =====================
+function renderChartsHome(fechas) {
+  if (!fechas) fechas = getFechasHome();
+
+  var periodLabel;
+  if (periodHome === "hoy")       periodLabel = "Hoy";
+  else if (periodHome === "7dias") periodLabel = "Últimos 7 días";
+  else if (periodHome === "mes")  periodLabel = new Date().toLocaleDateString("es-AR", { month: "long", year: "numeric" }).toUpperCase();
+  else if (periodHomeDesde && periodHomeHasta)
+    periodLabel = periodHomeDesde.split("-").reverse().join("/") + " → " + periodHomeHasta.split("-").reverse().join("/");
+  else periodLabel = "Período";
+
   var subtitleLinea = document.querySelector("#section-home .chart-subtitle");
-  if (subtitleLinea) subtitleLinea.textContent = "Línea del mes — " + mesLabel;
+  if (subtitleLinea) subtitleLinea.textContent = "Ingresos — " + periodLabel;
 
   var tooltipBase = { backgroundColor: "#1a1a1a", borderColor: "#2a2a2a", borderWidth: 1, titleColor: "#f0f0f0", bodyColor: "#666" };
   var scalesBase  = {
@@ -546,13 +610,13 @@ function renderChartsHome() {
   };
   var legendBase  = { labels: { color: "#888", font: { size: 11, family: "Space Grotesk" }, boxWidth: 10 } };
 
-  if (!dias.length) return;
+  if (!fechas.length) return;
 
-  var labels   = dias.map(function(d) { return d.slice(8); });
+  var labels   = fechas.map(function(d) { return d.slice(5); });
   var datasets = SUCURSALES.map(function(suc) {
     return {
       label: suc,
-      data:  dias.map(function(f) { return sumField(f, suc, "totalIngresos"); }),
+      data:  fechas.map(function(f) { return sumField(f, suc, "totalIngresos"); }),
       borderColor: COLORS[suc], backgroundColor: COLORS[suc] + "22",
       borderWidth: 2.5, pointRadius: 3, pointBackgroundColor: COLORS[suc],
       fill: false, tension: 0.3
@@ -566,10 +630,10 @@ function renderChartsHome() {
     options: { responsive: true, plugins: { legend: legendBase, tooltip: tooltipBase }, scales: scalesBase }
   });
 
-  var totMes = SUCURSALES.map(function(suc) {
-    return dias.reduce(function(a, f) { return a + sumField(f, suc, "totalIngresos"); }, 0);
+  var totPeriod = SUCURSALES.map(function(suc) {
+    return fechas.reduce(function(a, f) { return a + sumField(f, suc, "totalIngresos"); }, 0);
   });
-  renderParticipacion(totMes);
+  renderParticipacion(totPeriod);
 }
 
 function renderParticipacion(totMes) {
@@ -884,11 +948,11 @@ function semanasDelMes(mes) {
   var d = new Date(primer);
 
   while (d <= ultimo) {
-    var desde = d.toISOString().slice(0, 10);
+    var desde = localDateStr(d);
     var fin   = new Date(d);
     fin.setDate(fin.getDate() + (6 - fin.getDay()));
     if (fin > ultimo) fin = new Date(ultimo);
-    semanas.push({ label: "SEM " + sem, desde: desde, hasta: fin.toISOString().slice(0, 10) });
+    semanas.push({ label: "SEM " + sem, desde: desde, hasta: localDateStr(fin) });
     sem++;
     d = new Date(fin);
     d.setDate(d.getDate() + 1);
@@ -1086,6 +1150,60 @@ function initFacturas() {
 }
 
 // ===================== SECCIÓN: EGRESOS =====================
+function showEgresoDetail(suc, rubroId, fechas) {
+  var modal    = document.getElementById("egreso-detail-modal");
+  var titleEl  = document.getElementById("egreso-detail-title");
+  var bodyEl   = document.getElementById("egreso-detail-body");
+  var closeBtn = document.getElementById("egreso-detail-close");
+  if (!modal) return;
+
+  var rubroLabel = (RUBROS_EG.find(function(r) { return r.id === rubroId; }) || {}).label || rubroId;
+  titleEl.textContent = suc + " · " + rubroLabel;
+
+  var registros = [];
+  fechas.forEach(function(fecha) {
+    getRegs(fecha, suc).forEach(function(r) {
+      if ((r.tipo === "movimientos" || !r.tipo) && r.egresos && r.egresos[rubroId]) {
+        registros.push({ fecha: fecha, monto: r.egresos[rubroId], nota: r.nota || "", timestamp: r.timestamp || 0 });
+      }
+    });
+  });
+  registros.sort(function(a, b) { return b.timestamp - a.timestamp; });
+
+  if (!registros.length) {
+    bodyEl.innerHTML = '<div class="empty-st" style="padding:20px 0">Sin registros para este rubro en el período.</div>';
+  } else {
+    var total = registros.reduce(function(a, r) { return a + r.monto; }, 0);
+    var rows  = registros.map(function(r) {
+      var hora = r.timestamp ? new Date(r.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false }) : "—";
+      return '<tr style="border-bottom:1px solid var(--border)">' +
+        '<td style="padding:7px 6px">' + r.fecha.split("-").reverse().join("/") + '</td>' +
+        '<td style="padding:7px 6px;color:var(--muted);font-size:.78rem">' + hora + '</td>' +
+        '<td style="padding:7px 6px;color:var(--muted)">' + (r.nota || '—') + '</td>' +
+        '<td style="padding:7px 6px;text-align:right;color:var(--red);font-weight:600">' + fmtFull(r.monto) + '</td>' +
+        '</tr>';
+    }).join("");
+    bodyEl.innerHTML =
+      '<table style="width:100%;border-collapse:collapse;font-size:.82rem">' +
+        '<thead><tr style="color:var(--muted);border-bottom:2px solid var(--border)">' +
+          '<th style="text-align:left;padding:6px">Fecha</th>' +
+          '<th style="text-align:left;padding:6px">Hora</th>' +
+          '<th style="text-align:left;padding:6px">Nota</th>' +
+          '<th style="text-align:right;padding:6px">Monto</th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot><tr style="border-top:2px solid var(--border);font-weight:700">' +
+          '<td colspan="3" style="padding:8px 6px">Total</td>' +
+          '<td style="text-align:right;padding:8px 6px;color:var(--red)">' + fmtFull(total) + '</td>' +
+        '</tr></tfoot>' +
+      '</table>';
+  }
+
+  modal.classList.remove("hidden");
+  closeBtn.onclick = function() { modal.classList.add("hidden"); };
+  modal.onclick = function(e) { if (e.target === modal) modal.classList.add("hidden"); };
+}
+
 function renderEgresos(period) {
   periodEgresos = period;
   var fechas  = period === "hoy" ? [fechaOperativa()] : diasDeMes(mesOperativo());
@@ -1136,7 +1254,7 @@ function renderEgresos(period) {
       if (!val) return;
       var pct = suctot > 0 ? (val / suctot * 100) : 0;
       html +=
-        '<div class="detalle-row">' +
+        '<div class="detalle-row" data-suc="' + suc + '" data-rubro="' + r.id + '" style="cursor:pointer" title="Ver detalle · ' + r.label + '">' +
           '<span class="detalle-row-label">' + r.label + '</span>' +
           '<div class="detalle-row-right">' +
             '<div class="detalle-mini-bar-bg"><div class="detalle-mini-bar-fill" style="width:' + pct + '%;background:var(--red)"></div></div>' +
@@ -1145,6 +1263,14 @@ function renderEgresos(period) {
         '</div>';
     });
     card.innerHTML = html;
+    // Capture fechas in closure for click handler
+    (function(f) {
+      card.addEventListener("click", function(e) {
+        var row = e.target.closest(".detalle-row[data-suc]");
+        if (!row) return;
+        showEgresoDetail(row.getAttribute("data-suc"), row.getAttribute("data-rubro"), f);
+      });
+    })(fechas.slice());
     cont.appendChild(card);
   });
 }
@@ -1265,12 +1391,36 @@ function renderMerma() {
 }
 
 // ===================== SECCIÓN: HISTORIAL =====================
+var HIST_MES_NOMBRES = ["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+function histPeriodLabel(period) {
+  if (period === "semana")   return "Últimos 7 días";
+  if (period === "mes")      { var m = mesOperativo(); return HIST_MES_NOMBRES[parseInt(m.slice(5,7))] + " " + m.slice(0,4); }
+  if (period === "anterior") { var m = mesAnterior();  return HIST_MES_NOMBRES[parseInt(m.slice(5,7))] + " " + m.slice(0,4); }
+  if (period === "custom" && historialMesViendo) {
+    var m = historialMesViendo; return HIST_MES_NOMBRES[parseInt(m.slice(5,7))] + " " + m.slice(0,4);
+  }
+  return "Período";
+}
+
+function histGetFechas(period) {
+  if (period === "semana")   return ultimosDias(7);
+  if (period === "mes")      return diasDeMes(mesOperativo());
+  if (period === "anterior") return diasDeMes(mesAnterior());
+  if (period === "custom")   return diasDeMes(historialMesViendo || mesAnterior());
+  return ultimosDias(7);
+}
+
 function renderHistorial(period) {
   periodHist = period;
-  var fechas;
-  if (period === "semana")   fechas = ultimosDias(7);
-  else if (period === "mes") fechas = diasDeMes(mesOperativo());
-  else                       fechas = diasDeMes(mesAnterior());
+  var fechas = histGetFechas(period);
+  var label  = histPeriodLabel(period);
+
+  var subtitleEl = document.getElementById("hist-chart-subtitle");
+  if (subtitleEl) subtitleEl.textContent = "Ingresos diarios — " + label;
+
+  var acumTitle = document.getElementById("hist-acumulado-title");
+  if (acumTitle) acumTitle.textContent = "Acumulado — " + label;
 
   var tooltipBase = { backgroundColor: "#1a1a1a", borderColor: "#2a2a2a", borderWidth: 1, titleColor: "#f0f0f0", bodyColor: "#666" };
   var scalesBase  = {
@@ -1299,53 +1449,74 @@ function renderHistorial(period) {
     }
   });
 
-  // Tabla de totales acumulados del mes actual
-  var diasMesAct   = diasDeMes(mesOperativo());
-  var totalesEl    = document.getElementById("hist-totales-mes");
-  var totGlobalMes = 0;
-  var totPorSuc    = SUCURSALES.map(function(suc) {
-    var t = diasMesAct.reduce(function(a, f) { return a + sumField(f, suc, "totalIngresos"); }, 0);
-    totGlobalMes += t;
+  // Acumulado table — uses the same period (not hardcoded current month)
+  var totalesEl  = document.getElementById("hist-totales-mes");
+  var totGlobal  = 0;
+  var totPorSuc  = SUCURSALES.map(function(suc) {
+    var t = fechas.reduce(function(a, f) { return a + sumField(f, suc, "totalIngresos"); }, 0);
+    totGlobal += t;
     return t;
   });
 
   var thRow = '<tr>';
-  SUCURSALES.forEach(function(suc) {
-    thRow += '<th style="color:' + COLORS[suc] + '">' + suc + '</th>';
-  });
+  SUCURSALES.forEach(function(suc) { thRow += '<th style="color:' + COLORS[suc] + '">' + suc + '</th>'; });
   thRow += '<th>TOTAL</th></tr>';
 
   var tdRow = '<tr>';
-  totPorSuc.forEach(function(t) {
-    tdRow += '<td class="td-ing">' + (t ? fmtM(t) : '—') + '</td>';
-  });
-  tdRow += '<td class="td-ing" style="font-weight:700">' + fmtM(totGlobalMes) + '</td></tr>';
+  totPorSuc.forEach(function(t) { tdRow += '<td class="td-ing">' + (t ? fmtM(t) : '—') + '</td>'; });
+  tdRow += '<td class="td-ing" style="font-weight:700">' + fmtM(totGlobal) + '</td></tr>';
 
   var tblMes = document.createElement("table");
   tblMes.innerHTML = '<thead>' + thRow + '</thead><tbody>' + tdRow + '</tbody>';
   totalesEl.innerHTML = "";
   totalesEl.appendChild(tblMes);
 
-  // Tabla de días del período seleccionado
+  // Summary strip
+  var resumenWrap = document.getElementById("hist-resumen-wrap");
+  var resumenEl   = document.getElementById("hist-resumen");
+  if (resumenWrap && resumenEl) {
+    var totEg   = 0;
+    var diasCon = 0;
+    fechas.forEach(function(f) {
+      var teneDatos = false;
+      SUCURSALES.forEach(function(suc) {
+        totEg += sumField(f, suc, "totalEgresos");
+        if (sumField(f, suc, "totalIngresos") > 0) teneDatos = true;
+      });
+      if (teneDatos) diasCon++;
+    });
+    var neto   = totGlobal - totEg;
+    var promDia = diasCon > 0 ? Math.round(totGlobal / diasCon) : 0;
+    resumenWrap.style.display = "";
+    resumenEl.innerHTML =
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:6px">' +
+        '<div class="global-card"><div class="gc-label">Ingresos totales</div><div class="gc-val green">' + fmtFull(totGlobal) + '</div></div>' +
+        '<div class="global-card"><div class="gc-label">Egresos totales</div><div class="gc-val red">'   + fmtFull(totEg)    + '</div></div>' +
+        '<div class="global-card"><div class="gc-label">Neto período</div><div class="gc-val" style="color:' + (neto >= 0 ? 'var(--green)' : 'var(--red)') + '">' + fmtFull(neto) + '</div></div>' +
+        '<div class="global-card"><div class="gc-label">Prom. diario</div><div class="gc-val">' + fmtM(promDia) + '</div></div>' +
+      '</div>';
+  }
+
+  // Day-by-day table
   var tabla = document.getElementById("hist-tabla");
   tabla.innerHTML = "";
   if (!fechas.length) { tabla.innerHTML = '<div class="empty-st">Sin datos para este período.</div>'; return; }
 
-  var tbl    = document.createElement("table");
-  var thead  = '<thead><tr><th>Fecha</th>';
-  SUCURSALES.forEach(function(s) { thead += '<th>' + s + '</th>'; });
+  var tbl   = document.createElement("table");
+  var thead = '<thead><tr><th>Fecha</th>';
+  SUCURSALES.forEach(function(s) { thead += '<th style="color:' + COLORS[s] + '">' + s + '</th>'; });
   thead += '<th>TOTAL</th></tr></thead>';
 
   var tbody = '<tbody>';
   fechas.forEach(function(f) {
     var rowTotal = 0;
-    var row = '<tr><td>' + f.slice(5) + '</td>';
+    var row = '<tr><td style="white-space:nowrap">' + f.slice(5) + '</td>';
     SUCURSALES.forEach(function(suc) {
       var v = sumField(f, suc, "totalIngresos");
       rowTotal += v;
       row += '<td class="td-ing">' + (v ? fmtM(v) : "—") + '</td>';
     });
-    row += '<td class="td-ing" style="font-weight:700">' + fmtM(rowTotal) + '</td></tr>';
+    row += '<td class="td-ing" style="font-weight:700">' + (rowTotal ? fmtM(rowTotal) : "—") + '</td></tr>';
     tbody += row;
   });
   tbody += '</tbody>';
@@ -1353,13 +1524,43 @@ function renderHistorial(period) {
   tabla.appendChild(tbl);
 }
 
+function actualizarLabelHistMes() {
+  var mes    = historialMesViendo || mesAnterior();
+  var label  = document.getElementById("hist-mes-label");
+  var nextBtn = document.getElementById("hist-mes-next");
+  if (label)  label.textContent = HIST_MES_NOMBRES[parseInt(mes.slice(5,7))] + " " + mes.slice(0,4);
+  if (nextBtn) nextBtn.disabled  = sumarMes(mes, 1) > mesActual();
+}
+
 function initToggleHist() {
+  if (!historialMesViendo) historialMesViendo = mesAnterior();
+
   document.getElementById("toggle-hist").addEventListener("click", function(e) {
     var btn = e.target.closest(".toggle-btn");
     if (!btn) return;
     document.querySelectorAll("#toggle-hist .toggle-btn").forEach(function(b) { b.classList.remove("active"); });
     btn.classList.add("active");
-    renderHistorial(btn.getAttribute("data-val"));
+    periodHist = btn.getAttribute("data-val");
+    var mesNav = document.getElementById("hist-mes-nav");
+    if (mesNav) mesNav.style.display = periodHist === "custom" ? "flex" : "none";
+    if (periodHist === "custom") actualizarLabelHistMes();
+    renderHistorial(periodHist);
+  });
+
+  var prevBtn = document.getElementById("hist-mes-prev");
+  var nextBtn = document.getElementById("hist-mes-next");
+  if (prevBtn) prevBtn.addEventListener("click", function() {
+    historialMesViendo = sumarMes(historialMesViendo || mesAnterior(), -1);
+    actualizarLabelHistMes();
+    renderHistorial(periodHist);
+  });
+  if (nextBtn) nextBtn.addEventListener("click", function() {
+    var sig = sumarMes(historialMesViendo || mesAnterior(), 1);
+    if (sig <= mesActual()) {
+      historialMesViendo = sig;
+      actualizarLabelHistMes();
+      renderHistorial(periodHist);
+    }
   });
 }
 
@@ -1374,11 +1575,11 @@ function semanasDelMesActual() {
   var d = new Date(primer);
 
   while (d <= ultimo) {
-    var desde = d.toISOString().slice(0, 10);
+    var desde = localDateStr(d);
     var fin   = new Date(d);
     fin.setDate(fin.getDate() + (6 - fin.getDay()));
     if (fin > ultimo) fin = new Date(ultimo);
-    semanas.push({ label: "SEM " + sem, desde: desde, hasta: fin.toISOString().slice(0, 10) });
+    semanas.push({ label: "SEM " + sem, desde: desde, hasta: localDateStr(fin) });
     sem++;
     d = new Date(fin);
     d.setDate(d.getDate() + 1);
@@ -1781,6 +1982,14 @@ function renderDeudas() {
 }
 
 // ===================== SECCIÓN: SUELDOS =====================
+
+// Payment cycle: starts on the 23rd of each month.
+// If today < 23, we're in last month's cycle; if today >= 23 we're in current month's cycle.
+function cicloActual() {
+  var d = new Date();
+  return d.getDate() < 23 ? sumarMes(mesActual(), -1) : mesActual();
+}
+
 function renderSueldos() {
   var total    = allEmpleados.reduce(function(a, e) { return a + (e.sueldoBase || 0); }, 0);
   var bannerEl = document.getElementById("sueldos-total-val");
@@ -1791,15 +2000,37 @@ function renderSueldos() {
   tbody.innerHTML = "";
 
   if (!allEmpleados.length) {
-    tbody.innerHTML = "<tr><td colspan='7' class='fact-empty-row'>Sin empleados registrados.</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='8' class='fact-empty-row'>Sin empleados registrados.</td></tr>";
     return;
   }
 
-  allEmpleados.sort(function(a, b) { return (a.nombre || "").localeCompare(b.nombre || ""); });
+  // Update sort icon in headers
+  document.querySelectorAll(".emp-th-sort").forEach(function(th) {
+    var icon = th.querySelector(".sort-icon");
+    if (!icon) return;
+    icon.textContent = th.getAttribute("data-col") === sueldosSortCol
+      ? (sueldosSortDir === "asc" ? "↑" : "↓")
+      : "⇅";
+  });
 
-  allEmpleados.forEach(function(emp) {
-    var c  = COLORS[emp.sucursal] || "#888";
-    var tr = document.createElement("tr");
+  var NUMERIC = ["sueldoBase", "dni"];
+  var sorted  = allEmpleados.slice().sort(function(a, b) {
+    var va = a[sueldosSortCol] != null ? a[sueldosSortCol] : "";
+    var vb = b[sueldosSortCol] != null ? b[sueldosSortCol] : "";
+    if (NUMERIC.indexOf(sueldosSortCol) !== -1) {
+      va = parseFloat(String(va).replace(/\D/g, "")) || 0;
+      vb = parseFloat(String(vb).replace(/\D/g, "")) || 0;
+      return sueldosSortDir === "asc" ? va - vb : vb - va;
+    }
+    var cmp = String(va).localeCompare(String(vb), "es", { sensitivity: "base" });
+    return sueldosSortDir === "asc" ? cmp : -cmp;
+  });
+
+  var ciclo = cicloActual();
+  sorted.forEach(function(emp) {
+    var c      = COLORS[emp.sucursal] || "#888";
+    var pagado = emp.pagadoCiclo === ciclo;
+    var tr     = document.createElement("tr");
     tr.innerHTML =
       "<td class='emp-td-id'>"     + (emp.id     || "—") + "</td>" +
       "<td class='emp-td-nombre'>" + (emp.nombre  || "—") + "</td>" +
@@ -1807,6 +2038,10 @@ function renderSueldos() {
       "<td><span class='fact-suc-badge' style='color:" + c + "'>" + (emp.sucursal || "—") + "</span></td>" +
       "<td class='emp-td-puesto'>" + (emp.puesto  || "—") + "</td>" +
       "<td class='emp-td-sueldo'>" + fmtFull(emp.sueldoBase || 0) + "</td>" +
+      "<td style='text-align:center'>" +
+        "<input type='checkbox' class='emp-pagado-check' data-id='" + emp._id + "'" + (pagado ? " checked" : "") +
+        " title='Pagado 100% — ciclo " + ciclo + "' style='width:16px;height:16px;cursor:pointer;accent-color:var(--green)'>" +
+      "</td>" +
       "<td class='emp-td-acc'>" +
         "<button class='emp-btn-edit' data-id='" + emp._id + "'>✎</button>" +
         "<button class='fact-btn-del' data-id='" + emp._id + "'>✕</button>" +
@@ -1819,6 +2054,12 @@ function renderSueldos() {
   });
   tbody.querySelectorAll(".fact-btn-del").forEach(function(btn) {
     btn.addEventListener("click", function() { eliminarEmpleado(btn.getAttribute("data-id")); });
+  });
+  tbody.querySelectorAll(".emp-pagado-check").forEach(function(cb) {
+    cb.addEventListener("change", function() {
+      var empId = cb.getAttribute("data-id");
+      firebase.database().ref("empleados/" + empId + "/pagadoCiclo").set(cb.checked ? cicloActual() : "");
+    });
   });
 }
 
@@ -1947,7 +2188,37 @@ function initSueldos() {
   content.style.display = "block";
   document.getElementById("btn-guardar-empleado").onclick = guardarEmpleado;
 
-  if (sueldosRef) return; // listener ya activo, no duplicar
+  // One-time event handler setup
+  if (!sueldosInitedOnce) {
+    sueldosInitedOnce = true;
+
+    // Bidirectional column sort
+    document.querySelectorAll(".emp-th-sort").forEach(function(th) {
+      th.addEventListener("click", function() {
+        var col = th.getAttribute("data-col");
+        if (sueldosSortCol === col) {
+          sueldosSortDir = sueldosSortDir === "asc" ? "desc" : "asc";
+        } else {
+          sueldosSortCol = col;
+          sueldosSortDir = "asc";
+        }
+        renderSueldos();
+      });
+    });
+
+    // Collapsible new-employee form
+    var toggleBtn = document.getElementById("btn-toggle-emp-form");
+    var formWrap  = document.getElementById("emp-form-wrap");
+    if (toggleBtn && formWrap) {
+      toggleBtn.addEventListener("click", function() {
+        var open = formWrap.style.display !== "none";
+        formWrap.style.display = open ? "none" : "block";
+        toggleBtn.textContent  = open ? "+ Nuevo empleado" : "− Cerrar formulario";
+      });
+    }
+  }
+
+  if (sueldosRef) return; // Firebase listener ya activo — no duplicar
   sueldosRef = firebase.database().ref("empleados");
   sueldosRef.on("value", function(snap) {
     allEmpleados = [];
@@ -2004,6 +2275,7 @@ function initFirebase() {
   firebase.database().ref("cierres").on("value", function(cierresSnap) {
     cierresSnapCache = cierresSnap;
     renderCierreStrip(cierresSnap);
+    if (sectionActual === "home") renderFeed(); // refresh feed so cierre cards appear
   });
 
   firebase.database().ref("config/objetivos").on("value", function(snap) {
@@ -2411,6 +2683,7 @@ function initApp() {
   initToggleEgresos();
   initToggleHist();
   initToggleHome();
+  initFeedFilters();
   initFirebase();
   initProveedores();
 }

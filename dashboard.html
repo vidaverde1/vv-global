@@ -86,6 +86,15 @@
       </div>
     </div>
 
+    <!-- MODAL DETALLE EGRESO -->
+    <div id="egreso-detail-modal" class="admin-modal-overlay hidden">
+      <div class="db-login-card" style="max-width:560px;text-align:left;padding:28px;max-height:80vh;overflow-y:auto">
+        <div id="egreso-detail-title" style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:16px">Detalle de egreso</div>
+        <div id="egreso-detail-body"></div>
+        <button class="admin-modal-cancel" id="egreso-detail-close" style="width:100%;margin-top:16px">Cerrar</button>
+      </div>
+    </div>
+
     <!-- MODAL ABONO DEUDA -->
     <div id="abono-modal" class="admin-modal-overlay hidden">
       <div class="db-login-card">
@@ -209,6 +218,24 @@
       </div>
 
       <div class="block-title">⚡ Últimas cargas</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+        <select id="feed-filtro-tipo" class="fact-filtro-select" style="flex:1;min-width:130px">
+          <option value="">Todo tipo</option>
+          <option value="ventas">Ventas</option>
+          <option value="movimientos">Egresos / Mov.</option>
+          <option value="merma">Merma</option>
+          <option value="cierre">Cierres</option>
+        </select>
+        <select id="feed-filtro-suc" class="fact-filtro-select" style="flex:1;min-width:130px">
+          <option value="">Todas las sucursales</option>
+          <option value="NAZCA">NAZCA</option>
+          <option value="OLAZABAL">OLAZABAL</option>
+          <option value="CUENCA">CUENCA</option>
+          <option value="BEIRO">BEIRO</option>
+          <option value="GOYENA">GOYENA</option>
+        </select>
+        <button class="fact-filtro-clear" id="feed-filtro-clear" style="white-space:nowrap">✕</button>
+      </div>
       <div class="feed-card" id="feed-home"></div>
 
     </section>
@@ -408,18 +435,30 @@
     <!-- HISTORIAL -->
     <section class="section" id="section-historial">
       <div class="section-desc">Evolución y comparación histórica</div>
-      <div class="toggle-row" id="toggle-hist">
-        <button class="toggle-btn active" data-val="semana">Semana</button>
-        <button class="toggle-btn" data-val="mes">Mes actual</button>
-        <button class="toggle-btn" data-val="anterior">Mes anterior</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+        <div class="toggle-row" id="toggle-hist" style="margin-bottom:0">
+          <button class="toggle-btn active" data-val="semana">Semana</button>
+          <button class="toggle-btn" data-val="mes">Mes actual</button>
+          <button class="toggle-btn" data-val="anterior">Mes anterior</button>
+          <button class="toggle-btn" data-val="custom">Mes ›</button>
+        </div>
+        <div id="hist-mes-nav" class="fact-mes-nav" style="display:none">
+          <button class="fact-nav-btn" id="hist-mes-prev">‹</button>
+          <span id="hist-mes-label" style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--text);font-weight:600;min-width:100px;text-align:center">—</span>
+          <button class="fact-nav-btn" id="hist-mes-next">›</button>
+        </div>
       </div>
       <div class="chart-card">
-        <div class="chart-subtitle">Ingresos diarios por sucursal</div>
+        <div class="chart-subtitle" id="hist-chart-subtitle">Ingresos diarios por sucursal</div>
         <canvas id="chart-hist"></canvas>
       </div>
-      <div class="block-title">Acumulado mes actual</div>
+      <div class="block-title" id="hist-acumulado-title">Acumulado período</div>
       <div class="tabla-wrap" id="hist-totales-mes"></div>
-      <div class="block-title">Tabla de días</div>
+      <div id="hist-resumen-wrap" style="display:none;margin-bottom:4px">
+        <div class="block-title" style="margin-top:0">Resumen del período</div>
+        <div id="hist-resumen"></div>
+      </div>
+      <div class="block-title">Detalle por día</div>
       <div class="tabla-wrap" id="hist-tabla"></div>
     </section>
 
@@ -484,60 +523,73 @@
           <span class="sueldos-total-val" id="sueldos-total-val">—</span>
         </div>
 
-        <div class="block-title">Nuevo empleado</div>
-        <div class="fact-form-card">
-          <div class="fact-form-grid">
-            <div class="fact-field">
-              <label>ID / Legajo</label>
-              <input type="text" id="emp-id" placeholder="Ej: 0042">
-            </div>
-            <div class="fact-field">
-              <label>Nombre completo</label>
-              <input type="text" id="emp-nombre" placeholder="Apellido, Nombre">
-            </div>
-            <div class="fact-field">
-              <label>DNI</label>
-              <input type="text" id="emp-dni" placeholder="00.000.000">
-            </div>
-            <div class="fact-field">
-              <label>Sucursal</label>
-              <div class="select-wrap-dark">
-                <select id="emp-sucursal">
-                  <option value="">— Seleccioná —</option>
-                  <option value="NAZCA">NAZCA</option>
-                  <option value="OLAZABAL">OLAZABAL</option>
-                  <option value="CUENCA">CUENCA</option>
-                  <option value="BEIRO">BEIRO</option>
-                  <option value="GOYENA">GOYENA</option>
-                </select>
-              </div>
-            </div>
-            <div class="fact-field">
-              <label>Puesto</label>
-              <input type="text" id="emp-puesto" placeholder="Vendedor, Encargado...">
-            </div>
-            <div class="fact-field">
-              <label>Sueldo base</label>
-              <div class="fact-monto-wrap">
-                <span class="fact-prefix">$</span>
-                <input type="number" id="emp-sueldo" min="0" step="1" placeholder="0">
-              </div>
-            </div>
-          </div>
-          <button class="btn-guardar-fact" id="btn-guardar-empleado">+ Agregar empleado</button>
-        </div>
-
         <div class="block-title">Empleados activos</div>
-        <div class="fact-lista-wrap">
-          <table class="fact-lista-tabla">
+        <div class="fact-lista-wrap" style="overflow-x:auto">
+          <table class="fact-lista-tabla" id="emp-tabla" style="min-width:680px">
             <thead>
               <tr>
-                <th>ID</th><th>Nombre</th><th>DNI</th>
-                <th>Sucursal</th><th>Puesto</th><th>Sueldo Base</th><th></th>
+                <th class="emp-th-sort" data-col="id" style="cursor:pointer;user-select:none;white-space:nowrap">ID <span class="sort-icon">⇅</span></th>
+                <th class="emp-th-sort" data-col="nombre" style="cursor:pointer;user-select:none;white-space:nowrap">Nombre <span class="sort-icon">⇅</span></th>
+                <th class="emp-th-sort" data-col="dni" style="cursor:pointer;user-select:none;white-space:nowrap">DNI <span class="sort-icon">⇅</span></th>
+                <th class="emp-th-sort" data-col="sucursal" style="cursor:pointer;user-select:none;white-space:nowrap">Sucursal <span class="sort-icon">⇅</span></th>
+                <th class="emp-th-sort" data-col="puesto" style="cursor:pointer;user-select:none;white-space:nowrap">Puesto <span class="sort-icon">⇅</span></th>
+                <th class="emp-th-sort" data-col="sueldoBase" style="cursor:pointer;user-select:none;white-space:nowrap">Sueldo Base <span class="sort-icon">⇅</span></th>
+                <th style="white-space:nowrap" title="Pagado 100% este ciclo de pago">Pagado</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="emp-tabla-tbody"></tbody>
           </table>
+        </div>
+
+        <!-- Collapsible new employee form -->
+        <div style="margin-top:14px">
+          <button class="btn-outline" id="btn-toggle-emp-form" style="width:100%;padding:10px;text-align:center;border-radius:8px">
+            + Nuevo empleado
+          </button>
+          <div id="emp-form-wrap" style="display:none;margin-top:10px">
+            <div class="fact-form-card">
+              <div class="fact-form-grid">
+                <div class="fact-field">
+                  <label>ID / Legajo</label>
+                  <input type="text" id="emp-id" placeholder="Ej: 0042">
+                </div>
+                <div class="fact-field">
+                  <label>Nombre completo</label>
+                  <input type="text" id="emp-nombre" placeholder="Apellido, Nombre">
+                </div>
+                <div class="fact-field">
+                  <label>DNI</label>
+                  <input type="text" id="emp-dni" placeholder="00.000.000">
+                </div>
+                <div class="fact-field">
+                  <label>Sucursal</label>
+                  <div class="select-wrap-dark">
+                    <select id="emp-sucursal">
+                      <option value="">— Seleccioná —</option>
+                      <option value="NAZCA">NAZCA</option>
+                      <option value="OLAZABAL">OLAZABAL</option>
+                      <option value="CUENCA">CUENCA</option>
+                      <option value="BEIRO">BEIRO</option>
+                      <option value="GOYENA">GOYENA</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="fact-field">
+                  <label>Puesto</label>
+                  <input type="text" id="emp-puesto" placeholder="Vendedor, Encargado...">
+                </div>
+                <div class="fact-field">
+                  <label>Sueldo base</label>
+                  <div class="fact-monto-wrap">
+                    <span class="fact-prefix">$</span>
+                    <input type="number" id="emp-sueldo" min="0" step="1" placeholder="0">
+                  </div>
+                </div>
+              </div>
+              <button class="btn-guardar-fact" id="btn-guardar-empleado">+ Agregar empleado</button>
+            </div>
+          </div>
         </div>
 
       </div>
