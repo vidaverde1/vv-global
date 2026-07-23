@@ -903,13 +903,19 @@ function abrirModalEditar(reg) {
 
     var fechaRow = document.createElement("div");
     fechaRow.className = "field-row";
-    fechaRow.style.marginBottom = "14px";
+    fechaRow.style.marginBottom = "8px";
     fechaRow.innerHTML =
       '<label>Fecha</label>' +
-      '<input type="date" id="edit-fecha" value="' + fechaStr + '" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:7px;padding:7px 9px;font-family:inherit;font-size:.85rem;color:var(--text);outline:none">' +
-      '<label style="margin-left:10px">Hora</label>' +
-      '<input type="time" id="edit-hora" value="' + horaStr + '" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:7px;padding:7px 9px;font-family:inherit;font-size:.85rem;color:var(--text);outline:none">';
+      '<input type="date" id="edit-fecha" value="' + fechaStr + '" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:7px;padding:7px 9px;font-family:inherit;font-size:.85rem;color:var(--text);outline:none">';
     cuerpo.appendChild(fechaRow);
+
+    var horaRow = document.createElement("div");
+    horaRow.className = "field-row";
+    horaRow.style.marginBottom = "14px";
+    horaRow.innerHTML =
+      '<label>Hora</label>' +
+      '<input type="time" id="edit-hora" value="' + horaStr + '" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:7px;padding:7px 9px;font-family:inherit;font-size:.85rem;color:var(--text);outline:none">';
+    cuerpo.appendChild(horaRow);
 
     RUBROS_VENTAS.forEach(function(r) {
       var val = (reg.ventas && reg.ventas[r.id]) ? reg.ventas[r.id] : "";
