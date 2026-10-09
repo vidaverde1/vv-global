@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es-AR">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vida Verde - Sucursal</title>
-  <link rel="stylesheet" href="styles/sucursal.css">
+  <link rel="stylesheet" href="styles/sucursal.css?v=20261009-2">
   <link rel="manifest" href="manifest-sucursal.json">
   <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -136,6 +136,10 @@
                     </select>
                   </div>
                 </div>
+                <label class="inter-double-entry">
+                  <input type="checkbox" id="inter-doble-entrada">
+                  Registrar también el egreso en la sucursal de origen
+                </label>
               </div>
               <div class="field-row">
                 <label>Monto</label>
@@ -286,7 +290,12 @@
               <div class="empty-state">Conectando con Firebase...</div>
             </div>
             <div class="historial-sep">
-              <span>📋 Últimos 3 días</span>
+              <span>📋 Movimientos recientes</span>
+              <div class="historial-range" id="historial-range">
+                <button type="button" class="active" data-days="7">7 días</button>
+                <button type="button" data-days="15">15 días</button>
+                <button type="button" data-days="30">30 días</button>
+              </div>
             </div>
             <div id="historial-lista">
               <div class="empty-state">Cargando historial...</div>
@@ -309,10 +318,10 @@
   </div>
 
   <div class="toast" id="toast"></div>
-  <script src="js/sucursal.js"></script>
+  <script src="js/sucursal.js?v=20261009-3"></script>
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/vv-global/js/sw.js");
+      navigator.serviceWorker.register("./js/sw.js");
     }
   </script>
 </body>

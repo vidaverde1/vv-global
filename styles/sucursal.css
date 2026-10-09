@@ -773,6 +773,8 @@ body {
 .historial-sep {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
   margin: 18px 0 10px;
   font-size: .62rem;
@@ -781,6 +783,35 @@ body {
   text-transform: uppercase;
   color: var(--muted);
 }
+.historial-range {
+  display: inline-flex;
+  gap: 4px;
+  position: relative;
+  z-index: 1;
+  background: var(--bg);
+  padding: 0 4px;
+}
+.historial-range button {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: var(--surface);
+  color: var(--muted2);
+  font: 600 .68rem 'Space Grotesk', sans-serif;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.historial-range button.active { border-color: var(--green); color: var(--green-dk); background: var(--green-bg); }
+.inter-double-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 10px 108px;
+  color: var(--muted2);
+  font-size: .75rem;
+  line-height: 1.4;
+}
+.inter-double-entry input { margin-top: 2px; accent-color: var(--green); }
 .historial-sep::before,
 .historial-sep::after {
   content: '';

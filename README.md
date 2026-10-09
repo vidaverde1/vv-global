@@ -20,7 +20,7 @@ El sistema tiene dos aplicaciones independientes, cada una instalable como PWA:
 ### App de Sucursal
 - 🔐 Autenticación por clave individual por sucursal (guardada 8hs en el dispositivo)
 - 💰 **Ventas** — registro por medio de cobro (efectivo, débito, crédito, transferencia, Mercado Pago)
-- ↕ **Movimientos** — egresos por categoría e ingresos inter-sucursal con registro espejo automático
+- ↕ **Movimientos** — egresos por categoría e ingresos inter-sucursal; el egreso espejo en origen solo se registra al marcar explícitamente doble entrada
 - 📦 **Merma** — productos con cantidad, precio unitario, motivo y detalle
 - 🔒 **Cierre de caja** — monto contado vs saldo del sistema, con diferencia calculada (1 vez por día)
 - 💵 Saldo de efectivo acumulado histórico en tiempo real
@@ -72,6 +72,8 @@ registros/
     {SUCURSAL}/
       {pushId}/
         tipo: "ventas" | "movimientos" | "merma"
+
+Los movimientos inter-sucursal guardan `dobleEntrada` junto al ingreso. Si se confirma el egreso correspondiente en origen, su registro espejo se marca con `esEspejoInter: true` y `afectaCaja: true`.
 
 cierres/
   {YYYY-MM-DD}/

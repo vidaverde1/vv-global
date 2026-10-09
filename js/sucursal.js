@@ -37,13 +37,52 @@ var STORAGE_KEY       = "vvglobal_sucursal";
 var AUTH_SUC_KEY      = "vvglobal_suc_auth";
 var AUTH_SUC_DURACION = 8 * 60 * 60 * 1000; // 8 horas
 
+function readStorage(key, fallback) {
+  try {
+    var raw = localStorage.getItem(key);
+    return raw === null ? fallback : raw;
+  } catch (e) {
+    console.warn("Storage no disponible:", e);
+    return fallback;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    console.warn("No se pudo guardar en storage:", e);
+    return false;
+  }
+}
+
+function firebaseReadyForUi() {
+  return !!(window.firebase && typeof window.firebase.database === "function");
+}
+
+function ensureFirebaseReady(contextLabel) {
+  if (!firebaseReadyForUi()) {
+    var label = contextLabel || "la app";
+    console.error("[VV Global] Firebase no inicializado para " + label + ". Revisá config.js.");
+    var errorEl = document.getElementById("firebase-error");
+    if (errorEl) {
+      errorEl.style.display = "block";
+      errorEl.textContent = "No se pudo inicializar Firebase. Revisá la configuración del proyecto.";
+    }
+    return false;
+  }
+  return true;
+}
+
 // ===================== ESTADO =====================
-var sucursalActual    = localStorage.getItem(STORAGE_KEY) || null;
+var sucursalActual    = readStorage(STORAGE_KEY, null);
 var registrosHoy      = [];
 var registrosHist     = {}; // { "YYYY-MM-DD": [regs] } para el historial
 var movimientosTemp   = [];
 var mermaTemp         = [];
 var tipoMovActual     = "egreso";
+var diasHistorialVista = 7;
 var dbRef             = null;
 var saldoRef          = null;
 var cierreRef         = null;  // cierre de hoy (para mostrar done-card)
@@ -58,7 +97,7 @@ var lastSnapTotal     = null;  // cache del último snap de registros para re-re
 // ===================== AUTH =====================
 function sucAuthValida(nombre) {
   try {
-    var raw  = localStorage.getItem(AUTH_SUC_KEY);
+    var raw  = readStorage(AUTH_SUC_KEY, null);
     if (!raw) return false;
     var data = JSON.parse(raw);
     return data.sucursal === nombre && (Date.now() - data.ts) < AUTH_SUC_DURACION;
@@ -66,7 +105,7 @@ function sucAuthValida(nombre) {
 }
 
 function guardarSucAuth(nombre) {
-  localStorage.setItem(AUTH_SUC_KEY, JSON.stringify({ sucursal: nombre, ts: Date.now() }));
+  writeStorage(AUTH_SUC_KEY, JSON.stringify({ sucursal: nombre, ts: Date.now() }));
 }
 
 // ===================== HELPERS =====================
@@ -123,8 +162,10 @@ function renderSucursales() {
 }
 
 function elegirSucursal(nombre) {
+  if (!ensureFirebaseReady("sucursal")) return;
+
   if (sucAuthValida(nombre)) {
-    localStorage.setItem(STORAGE_KEY, nombre);
+    writeStorage(STORAGE_KEY, nombre);
     sucursalActual = nombre;
     mostrarCarga(nombre);
     return;
@@ -134,7 +175,7 @@ function elegirSucursal(nombre) {
     .then(function(snap) {
       if (!snap.exists()) {
         guardarSucAuth(nombre);
-        localStorage.setItem(STORAGE_KEY, nombre);
+        writeStorage(STORAGE_KEY, nombre);
         sucursalActual = nombre;
         mostrarCarga(nombre);
       } else {
@@ -142,7 +183,7 @@ function elegirSucursal(nombre) {
       }
     })
     .catch(function() {
-      localStorage.setItem(STORAGE_KEY, nombre);
+      writeStorage(STORAGE_KEY, nombre);
       sucursalActual = nombre;
       mostrarCarga(nombre);
     });
@@ -172,7 +213,7 @@ function mostrarPantallaClave(nombre, claveCorrecta) {
     if (!ingresada) return;
     if (ingresada === String(claveCorrecta).trim()) {
       guardarSucAuth(nombre);
-      localStorage.setItem(STORAGE_KEY, nombre);
+      writeStorage(STORAGE_KEY, nombre);
       sucursalActual = nombre;
       document.getElementById("pantalla-clave").classList.add("hidden");
       mostrarCarga(nombre);
@@ -193,12 +234,13 @@ function mostrarPantallaClave(nombre, claveCorrecta) {
 }
 
 function mostrarCarga(nombre) {
+  if (!ensureFirebaseReady("sucursal")) return;
+
   document.getElementById("pantalla-seleccion").classList.add("hidden");
   document.getElementById("pantalla-clave").classList.add("hidden");
   document.getElementById("pantalla-carga").classList.remove("hidden");
   document.getElementById("suc-badge").textContent = nombre;
-  document.getElementById("fecha-hoy").textContent =
-    new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  document.getElementById("fecha-hoy").textContent = fechaOperativa().split("-").reverse().join("/");
 
   // Poblar select de sucursal origen en movimientos
   var sel = document.getElementById("inter-origen");
@@ -255,8 +297,8 @@ function cambiarSucursal() {
   if (connRef)       { connRef.off();       connRef       = null; }
   if (objetivoRef)   { objetivoRef.off();   objetivoRef   = null; }
 
-  localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(AUTH_SUC_KEY);
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  try { localStorage.removeItem(AUTH_SUC_KEY); } catch (e) {}
   sucursalActual  = null;
   movimientosTemp = [];
   mermaTemp       = [];
@@ -384,11 +426,15 @@ function addMovimiento() {
   } else {
     var origen = document.getElementById("inter-origen").value;
     if (!origen) { showToast("Seleccioná la sucursal de origen.", "error"); return; }
-    movimientosTemp.push({ tipo: "ingreso-inter", origen: origen, monto: monto, detalle: detalle });
+    movimientosTemp.push({
+      tipo: "ingreso-inter", origen: origen, monto: monto, detalle: detalle,
+      dobleEntrada: document.getElementById("inter-doble-entrada").checked
+    });
   }
 
   document.getElementById("eg-categoria").value = "";
   document.getElementById("inter-origen").value  = "";
+  document.getElementById("inter-doble-entrada").checked = false;
   document.getElementById("mov-monto").value     = "";
   document.getElementById("mov-detalle").value   = "";
   renderMovLista();
@@ -412,7 +458,7 @@ function renderMovLista() {
     var isInter = m.tipo === "ingreso-inter";
     chip.className = "item-chip " + (isInter ? "ingreso" : "egreso");
     chip.innerHTML =
-      '<span class="chip-badge">' + (isInter ? "↑ " + m.origen : (CATS_EG[m.cat] || m.cat)) + '</span>' +
+      '<span class="chip-badge">' + (isInter ? "↑ " + m.origen + (m.dobleEntrada ? " · doble entrada" : "") : (CATS_EG[m.cat] || m.cat)) + '</span>' +
       '<span class="chip-det">'   + (m.detalle || "—") + '</span>' +
       '<span class="chip-val">'   + fmt(m.monto) + '</span>' +
       '<button class="chip-del" data-idx="' + idx + '">✕</button>';
@@ -443,7 +489,7 @@ function guardarMovimientos() {
       totalEgresos   += m.monto;
       egresosDetalle.push({ cat: m.cat, monto: m.monto, detalle: m.detalle });
     } else {
-      ingresosInter.push({ origen: m.origen, monto: m.monto, detalle: m.detalle });
+      ingresosInter.push({ origen: m.origen, monto: m.monto, detalle: m.detalle, dobleEntrada: !!m.dobleEntrada });
       totalIngInter += m.monto;
     }
   });
@@ -464,7 +510,7 @@ function guardarMovimientos() {
       })
   );
 
-  ingresosInter.forEach(function(inter) {
+  ingresosInter.filter(function(inter) { return inter.dobleEntrada; }).forEach(function(inter) {
     promesas.push(
       firebase.database()
         .ref("registros/" + fechaOperativa() + "/" + inter.origen)
@@ -478,7 +524,8 @@ function guardarMovimientos() {
           ingresosInter:  [],
           totalEgresos:   inter.monto,
           totalIngInter:  0,
-          esEspejoInter:  true
+          esEspejoInter:  true,
+          afectaCaja:    true
         })
     );
   });
@@ -669,7 +716,7 @@ function calcularSaldoDesdeSnap(snapTotal) {
 
   sucSnap.forEach(function(regSnap) {
     var r = regSnap.val();
-    if (r.esEspejoInter) return;
+    if (r.esEspejoInter && !r.afectaCaja) return;
     if (r.tipo === "ventas") {
       saldo += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
     } else if (r.tipo === "movimientos") {
@@ -906,7 +953,7 @@ function abrirModalEditar(reg) {
     fechaRow.style.marginBottom = "8px";
     fechaRow.innerHTML =
       '<label>Fecha</label>' +
-      '<input type="date" id="edit-fecha" value="' + fechaStr + '" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:7px;padding:7px 9px;font-family:inherit;font-size:.85rem;color:var(--text);outline:none">';
+      '<input type="date" id="edit-fecha" lang="es-AR" value="' + fechaStr + '" style="flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:7px;padding:7px 9px;font-family:inherit;font-size:.85rem;color:var(--text);outline:none">';
     cuerpo.appendChild(fechaRow);
 
     var horaRow = document.createElement("div");
@@ -1007,12 +1054,12 @@ function initConexion() {
 }
 
 // ===================== HISTORIAL (ÚLTIMOS 3 DÍAS HÁBILES) =====================
-function ultimos3DiasHabiles() {
+function ultimosDiasCalendarioSucursal() {
   var dias = [];
   var d = new Date(fechaOperativa() + "T12:00:00");
-  while (dias.length < 3) {
+  while (dias.length < diasHistorialVista) {
     d.setDate(d.getDate() - 1);
-    if (d.getDay() !== 0) dias.push(d.toISOString().slice(0, 10)); // saltar domingos
+    dias.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"));
   }
   return dias; // más reciente primero
 }
@@ -1022,17 +1069,17 @@ function renderHistorialSucursal() {
   if (!cont) return;
   cont.innerHTML = "";
 
-  var dias = ultimos3DiasHabiles();
+  var dias = ultimosDiasCalendarioSucursal();
   var hayAlgo = false;
 
   dias.forEach(function(fecha) {
-    var regs = (registrosHist[fecha] || []).filter(function(r) { return !r.esEspejoInter; });
+    var regs = (registrosHist[fecha] || []).filter(function(r) { return !r.esEspejoInter || r.afectaCaja; });
     if (!regs.length) return;
     hayAlgo = true;
 
     var secTitle = document.createElement("div");
     secTitle.className = "hist-fecha-titulo";
-    secTitle.textContent = new Date(fecha + "T12:00:00").toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+    secTitle.textContent = fecha.split("-").reverse().join("/");
     cont.appendChild(secTitle);
 
     regs.slice().reverse().forEach(function(reg) {
@@ -1106,7 +1153,7 @@ function conectarFirebase(sucursal) {
           registrosHoy.push(Object.assign({ id: child.key }, child.val()));
         });
       }
-      registrosHoy = registrosHoy.filter(function(r) { return !r.esEspejoInter; });
+      registrosHoy = registrosHoy.filter(function(r) { return !r.esEspejoInter || r.afectaCaja; });
       renderResumen();
     }, function(err) {
       console.error("Firebase error:", err);
@@ -1120,7 +1167,7 @@ function conectarFirebase(sucursal) {
       lastSnapTotal = snapTotal; // cachear para re-renders por cambio de objetivo
 
       // Historial: últimos 3 días hábiles
-      var diasHist = ultimos3DiasHabiles();
+      var diasHist = ultimosDiasCalendarioSucursal();
       registrosHist = {};
       diasHist.forEach(function(fecha) {
         var regs = [];
@@ -1200,7 +1247,7 @@ function conectarFirebase(sucursal) {
               var sucSnap = snapTotal.child(baseFecha).child(sucursal);
               sucSnap.forEach(function(regSnap) {
                 var r = regSnap.val();
-                if (r.esEspejoInter) return;
+                if (r.esEspejoInter && !r.afectaCaja) return;
                 if (r.tipo === "ventas") {
                   baseEfvo += (r.ventas && r.ventas.efectivo) ? r.ventas.efectivo : 0;
                 } else if (r.tipo === "movimientos") {
@@ -1234,10 +1281,30 @@ function conectarFirebase(sucursal) {
 
 // ===================== INIT =====================
 document.addEventListener("DOMContentLoaded", function() {
+  if (!ensureFirebaseReady("sucursal")) return;
+
   document.getElementById("btn-cambiar").addEventListener("click", cambiarSucursal);
   document.getElementById("btn-guardar-ventas").addEventListener("click", guardarVentas);
   document.getElementById("btn-guardar-mov").addEventListener("click", guardarMovimientos);
   document.getElementById("btn-guardar-merma").addEventListener("click", guardarMerma);
+
+  document.getElementById("historial-range").addEventListener("click", function(e) {
+    var button = e.target.closest("button[data-days]");
+    if (!button) return;
+    diasHistorialVista = parseInt(button.getAttribute("data-days"), 10);
+    document.querySelectorAll("#historial-range button").forEach(function(item) { item.classList.toggle("active", item === button); });
+    if (lastSnapTotal) {
+      var dias = ultimosDiasCalendarioSucursal();
+      registrosHist = {};
+      dias.forEach(function(fecha) {
+        var regs = [];
+        var sucSnap = lastSnapTotal.child(fecha).child(sucursalActual);
+        if (sucSnap.exists()) sucSnap.forEach(function(child) { regs.push(Object.assign({ id: child.key }, child.val())); });
+        registrosHist[fecha] = regs;
+      });
+      renderHistorialSucursal();
+    }
+  });
 
   initTabs();
   initMovimientos();

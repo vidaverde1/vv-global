@@ -61,15 +61,18 @@ var allFacturas       = [];
 var allDeudas         = [];
 var allEmpleados      = [];
 var sueldosRef        = null;
+var empleadosAnalyticsRef = null;
 var allProveedores    = [];
 var provRef           = null;
 var charts            = {};
 var sectionActual     = "home";
-var periodEgresos     = "hoy";
+var periodEgresos     = "7";
+var periodMerma       = "mes";
 var periodHist        = "semana";
 var viewParticipacion = "donut"; // "donut" | "bar"
 var facturasMesViendo  = null;    // se inicializa en initFacturas()
 var objetivosMesViendo = null;    // se inicializa en initObjetivosModal()
+var objetivosView      = "cards";
 var periodHome         = "hoy";
 var periodHomeDesde    = "";
 var periodHomeHasta    = "";
@@ -83,9 +86,47 @@ var historialMesViendo = null;
 var AUTH_KEY      = "vvglobal_dash_auth";
 var AUTH_DURATION = 8 * 60 * 60 * 1000; // 8 horas
 
+function readStorage(key, fallback) {
+  try {
+    var raw = localStorage.getItem(key);
+    return raw === null ? fallback : raw;
+  } catch (e) {
+    console.warn("Storage no disponible:", e);
+    return fallback;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    console.warn("No se pudo guardar en storage:", e);
+    return false;
+  }
+}
+
+function firebaseReadyForUi() {
+  return !!(window.firebase && typeof window.firebase.database === "function");
+}
+
+function ensureFirebaseReady(contextLabel) {
+  if (!firebaseReadyForUi()) {
+    var label = contextLabel || "la app";
+    console.error("[VV Global] Firebase no inicializado para " + label + ". Revisá config.js.");
+    var errorEl = document.getElementById("db-config-error");
+    if (errorEl) {
+      errorEl.textContent = "No se pudo inicializar Firebase. Revisá la configuración del proyecto.";
+      errorEl.classList.remove("hidden");
+    }
+    return false;
+  }
+  return true;
+}
+
 function dashAuthValida() {
   try {
-    var raw = localStorage.getItem(AUTH_KEY);
+    var raw = readStorage(AUTH_KEY, null);
     if (!raw) return false;
     var data = JSON.parse(raw);
     return (Date.now() - data.ts) < AUTH_DURATION;
@@ -93,10 +134,12 @@ function dashAuthValida() {
 }
 
 function guardarDashAuth() {
-  localStorage.setItem(AUTH_KEY, JSON.stringify({ ts: Date.now() }));
+  writeStorage(AUTH_KEY, JSON.stringify({ ts: Date.now() }));
 }
 
 function initDashLogin() {
+  if (!ensureFirebaseReady("dashboard")) return false;
+
   var pantalla = document.getElementById("pantalla-login");
   var input    = document.getElementById("db-login-input");
   var btn      = document.getElementById("db-login-btn");
@@ -153,7 +196,7 @@ var ADMIN_DURATION = 60 * 60 * 1000; // 1 hora
 
 function adminAuthValida() {
   try {
-    var raw = localStorage.getItem(ADMIN_KEY);
+    var raw = readStorage(ADMIN_KEY, null);
     if (!raw) return false;
     var data = JSON.parse(raw);
     return (Date.now() - data.ts) < ADMIN_DURATION;
@@ -161,7 +204,7 @@ function adminAuthValida() {
 }
 
 function guardarAdminAuth() {
-  localStorage.setItem(ADMIN_KEY, JSON.stringify({ ts: Date.now() }));
+  writeStorage(ADMIN_KEY, JSON.stringify({ ts: Date.now() }));
 }
 
 // Modal en página — devuelve Promise<boolean>
@@ -327,12 +370,59 @@ function diasDeMes(mes) {
 
 function ultimosDias(n) {
   var days = [];
+  var base = new Date(fechaOperativa() + "T12:00:00");
   for (var i = n - 1; i >= 0; i--) {
-    var d = new Date();
+    var d = new Date(base);
     d.setDate(d.getDate() - i);
     days.push(localDateStr(d));
   }
   return days;
+}
+
+function fechasDePeriodo(period, desde, hasta) {
+  if (period === "hoy") return [fechaOperativa()];
+  if (period === "7" || period === "semana") return ultimosDias(7);
+  if (period === "15" || period === "30") return ultimosDias(parseInt(period, 10));
+  if (period === "mes") return diasDeMes(mesOperativo()).filter(function(f) { return f <= fechaOperativa(); });
+  if (period === "anterior") return diasDeMes(mesAnterior());
+  if (period === "custom" && desde && hasta && desde <= hasta) {
+    var fechas = [];
+    var cursor = new Date(desde + "T12:00:00");
+    var fin = new Date(hasta + "T12:00:00");
+    while (cursor <= fin && fechas.length < 367) {
+      fechas.push(localDateStr(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return fechas;
+  }
+  return [];
+}
+
+function initReportFilter(containerId, prefix, initialPeriod, render) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  var activePeriod = initialPeriod;
+  container.querySelectorAll("[data-period]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      container.querySelectorAll("[data-period]").forEach(function(item) { item.classList.remove("active"); });
+      btn.classList.add("active");
+      activePeriod = btn.getAttribute("data-period");
+      var custom = activePeriod === "custom";
+      document.getElementById(prefix + "-custom-range").classList.toggle("hidden", !custom);
+      render(activePeriod);
+    });
+  });
+  ["desde", "hasta"].forEach(function(suffix) {
+    var input = document.getElementById(prefix + "-" + suffix);
+    if (input) input.addEventListener("change", function() {
+      activePeriod = "custom";
+      container.querySelectorAll("[data-period]").forEach(function(item) { item.classList.toggle("active", item.getAttribute("data-period") === "custom"); });
+      document.getElementById(prefix + "-custom-range").classList.remove("hidden");
+      render(activePeriod);
+    });
+  });
+  var sucursal = document.getElementById(prefix + "-sucursal");
+  if (sucursal) sucursal.addEventListener("change", function() { render(activePeriod); });
 }
 
 function getMermaRegs(fecha, suc) {
@@ -350,25 +440,45 @@ function initNav() {
   var sidebar   = document.getElementById("sidebar");
   var overlay   = document.getElementById("nav-overlay");
   var closeBtn  = document.getElementById("sidebar-close");
+  var mobileLayout = window.innerWidth <= 900;
+
+  function setSidebarCollapsed(collapsed) {
+    sidebar.classList.toggle("collapsed", collapsed);
+    sidebar.classList.toggle("open", !collapsed);
+    document.body.classList.toggle("sidebar-collapsed", collapsed);
+
+    if (window.innerWidth <= 900) {
+      overlay.classList.toggle("show", !collapsed);
+    } else {
+      overlay.classList.remove("show");
+    }
+  }
 
   hamburger.addEventListener("click", function() {
-    sidebar.classList.add("open");
-    overlay.classList.add("show");
+    setSidebarCollapsed(!sidebar.classList.contains("collapsed"));
+  });
+
+  window.addEventListener("resize", function() {
+    var nextMobileLayout = window.innerWidth <= 900;
+    if (nextMobileLayout && !mobileLayout) setSidebarCollapsed(true);
+    mobileLayout = nextMobileLayout;
   });
 
   function closeSidebar() {
-    sidebar.classList.remove("open");
-    overlay.classList.remove("show");
+    setSidebarCollapsed(true);
   }
+
   overlay.addEventListener("click", closeSidebar);
   closeBtn.addEventListener("click", closeSidebar);
 
   document.querySelectorAll(".menu-item").forEach(function(item) {
     item.addEventListener("click", function() {
       goToSection(item.getAttribute("data-section"));
-      closeSidebar();
+      if (window.innerWidth <= 900) closeSidebar();
     });
   });
+
+  setSidebarCollapsed(window.innerWidth <= 900);
 }
 
 function goToSection(sec) {
@@ -496,6 +606,7 @@ function renderFeed() {
   var container  = document.getElementById("feed-home");
   var filtroTipo = ((document.getElementById("feed-filtro-tipo") || {}).value) || "";
   var filtroSuc  = ((document.getElementById("feed-filtro-suc")  || {}).value) || "";
+  var filtroPeriodo = ((document.getElementById("feed-filtro-periodo") || {}).value) || "7";
   var todos      = [];
 
   Object.keys(allData).forEach(function(fecha) {
@@ -526,6 +637,10 @@ function renderFeed() {
 
   todos.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
 
+  if (filtroPeriodo !== "todo") {
+    var fechasPermitidas = fechasDePeriodo(filtroPeriodo);
+    todos = todos.filter(function(r) { return fechasPermitidas.indexOf(r._fecha) !== -1; });
+  }
   if (filtroTipo) todos = todos.filter(function(r) { return r.tipo === filtroTipo; });
   if (filtroSuc)  todos = todos.filter(function(r) { return (r.sucursal || "") === filtroSuc; });
 
@@ -539,7 +654,7 @@ function renderFeed() {
   ultimos.forEach(function(r) {
     var ts   = new Date(r.timestamp);
     var hora = ts.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false });
-    var fdia = ts.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+    var fdia = fechaDDMMAAAA(r._fecha);
     var suc  = r.sucursal || "";
     var c    = COLORS[suc] || "#888";
     var div  = document.createElement("div");
@@ -578,17 +693,24 @@ function renderFeed() {
 function initFeedFilters() {
   var tipSel  = document.getElementById("feed-filtro-tipo");
   var sucSel  = document.getElementById("feed-filtro-suc");
+  var periodoSel = document.getElementById("feed-filtro-periodo");
   var clearBtn = document.getElementById("feed-filtro-clear");
   if (tipSel)  tipSel.addEventListener("change", renderFeed);
   if (sucSel)  sucSel.addEventListener("change", renderFeed);
+  if (periodoSel) periodoSel.addEventListener("change", renderFeed);
   if (clearBtn) clearBtn.addEventListener("click", function() {
     if (tipSel) tipSel.value = "";
     if (sucSel) sucSel.value = "";
+    if (periodoSel) periodoSel.value = "7";
     renderFeed();
   });
 }
 
 // ===================== SECCIÓN: CHARTS HOME =====================
+function chartLegendPosition(desktopPosition) {
+  return window.innerWidth < 768 ? "bottom" : (desktopPosition || "top");
+}
+
 function renderChartsHome(fechas) {
   if (!fechas) fechas = getFechasHome();
 
@@ -604,11 +726,12 @@ function renderChartsHome(fechas) {
   if (subtitleLinea) subtitleLinea.textContent = "Ingresos — " + periodLabel;
 
   var tooltipBase = { backgroundColor: "#1a1a1a", borderColor: "#2a2a2a", borderWidth: 1, titleColor: "#f0f0f0", bodyColor: "#666" };
+  var tickSize = window.innerWidth < 768 ? 9 : 10;
   var scalesBase  = {
-    x: { ticks: { color: "#555", font: { size: 10 } }, grid: { color: "#1f1f1f" } },
-    y: { ticks: { color: "#555", font: { size: 10 }, callback: function(v) { return fmtM(v); } }, grid: { color: "#1f1f1f" } }
+    x: { ticks: { color: "#555", autoSkip: true, maxTicksLimit: window.innerWidth < 768 ? 7 : 12, font: { size: tickSize } }, grid: { color: "#1f1f1f" } },
+    y: { ticks: { color: "#555", font: { size: tickSize }, callback: function(v) { return fmtM(v); } }, grid: { color: "#1f1f1f" } }
   };
-  var legendBase  = { labels: { color: "#888", font: { size: 11, family: "Space Grotesk" }, boxWidth: 10 } };
+  var legendBase  = { position: chartLegendPosition("top"), labels: { color: "#888", font: { size: 10, family: "Space Grotesk" }, boxWidth: 9, usePointStyle: true, padding: 8 } };
 
   if (!fechas.length) return;
 
@@ -774,6 +897,8 @@ function renderObjetivos(obj) {
   var habil = calcDiasHabiles();
   var cont  = document.getElementById("obj-cards");
   cont.innerHTML = "";
+  cont.classList.toggle("obj-list-view", objetivosView === "list");
+  var sucursalFiltro = document.getElementById("obj-sucursal-filtro").value;
 
   // Para meses pasados: habil refiere al mes viendo, no al actual
   var habilMes = esActual ? habil : (function() {
@@ -832,6 +957,7 @@ function renderObjetivos(obj) {
 
   // Cards por sucursal
   SUCURSALES.forEach(function(suc) {
+    if (sucursalFiltro && sucursalFiltro !== suc) return;
     var acum     = dias.reduce(function(a, f) { return a + sumField(f, suc, "totalIngresos"); }, 0);
     var meta     = obj[suc] || 0;
     var falta    = Math.max(meta - acum, 0);
@@ -867,6 +993,14 @@ function renderObjetivos(obj) {
     var card = document.createElement("div");
     card.className = "obj-card";
     card.setAttribute("data-suc", suc);
+    var totalCompras = allFacturas.reduce(function(total, factura) {
+      return total + (factura.sucursal === suc && factura.fecha && factura.fecha.slice(0, 7) === mes ? Number(factura.monto) || 0 : 0);
+    }, 0);
+    var totalMerma = dias.reduce(function(total, fecha) {
+      return total + getMermaRegs(fecha, suc).reduce(function(subtotal, reg) { return subtotal + (reg.totalMerma || 0); }, 0);
+    }, 0);
+    var empleadosSucursal = allEmpleados.filter(function(emp) { return emp.sucursal === suc; });
+    var sueldoBaseSucursal = empleadosSucursal.reduce(function(total, emp) { return total + (Number(emp.sueldoBase) || 0); }, 0);
     card.innerHTML =
       '<div class="obj-top">' +
         '<span class="obj-suc-name">' + suc + '</span>' +
@@ -877,7 +1011,14 @@ function renderObjetivos(obj) {
         '<span class="obj-acum">' + fmtFull(acum) + '</span>' +
         '<span class="obj-meta">Obj: ' + fmtFull(meta) + '</span>' +
       '</div>' +
-      promHtml;
+      promHtml +
+      '<div class="obj-sucursal-resumen">' +
+        '<div><span>Ventas</span><strong>' + fmtM(acum) + '</strong></div>' +
+        '<div><span>Compras del mes</span><strong>' + fmtM(totalCompras) + '</strong></div>' +
+        '<div><span>Empleados registrados</span><strong>' + empleadosSucursal.length + '</strong></div>' +
+        '<div><span>Merma del mes</span><strong>' + fmtM(totalMerma) + '</strong></div>' +
+        '<div><span>Sueldo base actual</span><strong>' + fmtM(sueldoBaseSucursal) + '</strong></div>' +
+      '</div>';
     cont.appendChild(card);
   });
 }
@@ -890,6 +1031,15 @@ function initObjetivosModal() {
   var btnCancel = document.getElementById("btn-cancel-obj");
   var btnSave   = document.getElementById("btn-save-obj");
   var fields    = document.getElementById("obj-fields");
+
+  document.getElementById("obj-sucursal-filtro").addEventListener("change", renderObjetivos);
+  document.getElementById("obj-view-toggle").addEventListener("click", function(e) {
+    var button = e.target.closest("button[data-view]");
+    if (!button) return;
+    objetivosView = button.getAttribute("data-view");
+    document.querySelectorAll("#obj-view-toggle button").forEach(function(item) { item.classList.toggle("active", item === button); });
+    renderObjetivos();
+  });
 
   document.getElementById("obj-mes-prev").addEventListener("click", function() {
     objetivosMesViendo = sumarMes(objetivosMesViendo, -1);
@@ -969,6 +1119,12 @@ function renderFacturas() {
   var semanas  = semanasDelMes(mes);
   var del_mes  = (allFacturas || []).filter(function(f) { return f.fecha && f.fecha.slice(0, 7) === mes; });
   del_mes.sort(function(a, b) { return b.fecha.localeCompare(a.fecha); });
+  renderTopFacturas(del_mes);
+  var totalFacturadoMes = del_mes.reduce(function(total, factura) { return total + (Number(factura.monto) || 0); }, 0);
+  document.getElementById("fact-kpis").innerHTML =
+    '<div class="global-card"><div class="gc-label">Facturado del mes</div><div class="gc-val green">' + fmtFull(totalFacturadoMes) + '</div></div>' +
+    '<div class="global-card"><div class="gc-label">Facturas del mes</div><div class="gc-val">' + del_mes.length + '</div></div>' +
+    '<div class="global-card"><div class="gc-label">Promedio por factura</div><div class="gc-val">' + fmtFull(del_mes.length ? totalFacturadoMes / del_mes.length : 0) + '</div></div>';
 
   // Resumen semanas × sucursal
   var thead = document.getElementById("fact-resumen-thead");
@@ -1016,7 +1172,8 @@ function renderFacturas() {
   var listaTbody = document.getElementById("fact-lista-tbody");
   listaTbody.innerHTML = "";
 
-  var filtradas = del_mes.filter(function(f) {
+  var baseLista = filtroDesde || filtroHasta ? allFacturas : del_mes;
+  var filtradas = baseLista.filter(function(f) {
     if (filtroSuc  && f.sucursal !== filtroSuc) return false;
     if (filtroProv && !(f.proveedor || "").toLowerCase().includes(filtroProv)) return false;
     if (filtroDesde && f.fecha < filtroDesde) return false;
@@ -1026,7 +1183,7 @@ function renderFacturas() {
 
   if (!filtradas.length) {
     listaTbody.innerHTML = "<tr><td colspan='6' class='fact-empty-row'>" +
-      (del_mes.length ? "Sin facturas para los filtros aplicados." : "Sin facturas para este mes.") +
+      (baseLista.length ? "Sin facturas para los filtros aplicados." : "Sin facturas para este mes.") +
       "</td></tr>";
     return;
   }
@@ -1038,7 +1195,7 @@ function renderFacturas() {
       "<td><span class='fact-suc-badge' style='color:" + c + "'>" + f.sucursal + "</span></td>" +
       "<td class='fact-td-prov'>"  + (f.proveedor || "—") + "</td>" +
       "<td class='fact-td-num'>"   + (f.numero    || "—") + "</td>" +
-      "<td class='fact-td-fecha'>" + (f.fecha ? f.fecha.split("-").reverse().join("/") : "—") + "</td>" +
+      "<td class='fact-td-fecha'>" + fechaDDMMAAAA(f.fecha) + "</td>" +
       "<td class='fact-td-monto'>" + fmtFull(f.monto || 0) + "</td>" +
       "<td><button class='fact-btn-del' data-id='" + f._id + "'>✕</button></td>";
     listaTbody.appendChild(tr);
@@ -1053,6 +1210,46 @@ function renderFacturas() {
         firebase.database().ref("facturas/" + id).remove();
       });
     });
+  });
+}
+
+function renderTopFacturas(facturas) {
+  if (!window.Chart) return;
+  var lookup = buildProvLookup();
+  var totales = {};
+  facturas.forEach(function(f) {
+    var id = f.proveedor ? lookup[f.proveedor.toLowerCase()] : null;
+    var proveedor = allProveedores.find(function(item) { return item._id === id; });
+    var nombre = proveedor ? proveedor.nombre : (f.proveedor || "Sin proveedor");
+    if (!totales[nombre]) totales[nombre] = { monto: 0, cantidad: 0 };
+    totales[nombre].monto += Number(f.monto) || 0;
+    totales[nombre].cantidad++;
+  });
+  var ordenMonto = Object.keys(totales).sort(function(a, b) { return totales[b].monto - totales[a].monto; }).slice(0, 5);
+  var ordenCantidad = Object.keys(totales).sort(function(a, b) { return totales[b].cantidad - totales[a].cantidad; }).slice(0, 5);
+  ["facturasMonto", "facturasCantidad"].forEach(function(key) {
+    if (charts[key]) charts[key].destroy();
+  });
+  charts.facturasMonto = new Chart(document.getElementById("chart-facturas-monto"), {
+    type: "bar",
+    data: { labels: ordenMonto, datasets: [{ data: ordenMonto.map(function(n) { return totales[n].monto; }), backgroundColor: "#00e676aa", borderRadius: 4 }] },
+    options: { indexAxis: "y", responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return fmtFull(ctx.raw); } } } }, scales: { x: { ticks: { color: "#888", callback: function(v) { return fmtM(v); } }, grid: { color: "#252525" } }, y: { ticks: { color: "#aaa" }, grid: { display: false } } } }
+  });
+  charts.facturasCantidad = new Chart(document.getElementById("chart-facturas-cantidad"), {
+    type: "bar",
+    data: { labels: ordenCantidad, datasets: [{ data: ordenCantidad.map(function(n) { return totales[n].cantidad; }), backgroundColor: "#4da6ffbb", borderRadius: 4 }] },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: function(ctx) { return ctx.raw + " facturas"; } } }
+      },
+      scales: {
+        x: { ticks: { color: "#888", precision: 0 }, grid: { color: "#252525" } },
+        y: { ticks: { color: "#aaa" }, grid: { display: false } }
+      }
+    }
   });
 }
 
@@ -1127,6 +1324,7 @@ function initFacturas() {
   document.getElementById("fact-fecha").value = today();
   document.getElementById("btn-guardar-fact").addEventListener("click", guardarFactura);
   document.getElementById("btn-export-facturas").addEventListener("click", exportarFacturasCSV);
+  document.getElementById("btn-ver-proveedores").addEventListener("click", function() { goToSection("proveedores"); });
 
   document.getElementById("filtro-sucursal").addEventListener("change", renderFacturas);
   document.getElementById("filtro-proveedor").addEventListener("input", renderFacturas);
@@ -1205,13 +1403,16 @@ function showEgresoDetail(suc, rubroId, fechas) {
 }
 
 function renderEgresos(period) {
-  periodEgresos = period;
-  var fechas  = period === "hoy" ? [fechaOperativa()] : diasDeMes(mesOperativo());
+  if (period) periodEgresos = period;
+  period = periodEgresos;
+  var fechas  = fechasDePeriodo(period, document.getElementById("egresos-desde").value, document.getElementById("egresos-hasta").value);
+  var filtroSuc = document.getElementById("egresos-sucursal").value;
+  var sucursales = filtroSuc ? [filtroSuc] : SUCURSALES;
   var totales = {};
   RUBROS_EG.forEach(function(r) { totales[r.id] = 0; });
 
   fechas.forEach(function(f) {
-    SUCURSALES.forEach(function(suc) {
+    sucursales.forEach(function(suc) {
       RUBROS_EG.forEach(function(r) {
         totales[r.id] += sumRubro(f, suc, "egresos", r.id);
       });
@@ -1221,8 +1422,16 @@ function renderEgresos(period) {
   var labels = RUBROS_EG.map(function(r) { return r.label; });
   var data   = RUBROS_EG.map(function(r) { return totales[r.id]; });
   var colors = ["#ff6b6b", "#f0a500", "#4da6ff", "#c084fc", "#888"];
+  var totalEgresosPeriodo = data.reduce(function(total, monto) { return total + monto; }, 0);
+  var categoriaPrincipal = labels[data.indexOf(Math.max.apply(null, data))] || "—";
+  document.getElementById("egresos-kpis").innerHTML =
+    '<div class="global-card"><div class="gc-label">Egresos del período</div><div class="gc-val red">' + fmtFull(totalEgresosPeriodo) + '</div></div>' +
+    '<div class="global-card"><div class="gc-label">Promedio diario</div><div class="gc-val">' + fmtFull(fechas.length ? totalEgresosPeriodo / fechas.length : 0) + '</div></div>' +
+    '<div class="global-card"><div class="gc-label">Mayor categoría</div><div class="gc-val">' + (totalEgresosPeriodo ? categoriaPrincipal : '—') + '</div></div>';
 
   if (charts.egresosDonut) charts.egresosDonut.destroy();
+  var periodoLabel = period === "custom" ? "Período personalizado" : period === "mes" ? "Mes actual" : period === "anterior" ? "Mes anterior" : period === "hoy" ? "Hoy" : "Últimos " + (period === "semana" ? 7 : period) + " días";
+  document.querySelector("#section-egresos .chart-subtitle").textContent = "Distribución · " + (filtroSuc || "todas las sucursales") + " · " + periodoLabel;
   charts.egresosDonut = new Chart(document.getElementById("chart-egresos-donut"), {
     type: "doughnut",
     data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderColor: "#111", borderWidth: 2, hoverOffset: 5 }] },
@@ -1230,7 +1439,7 @@ function renderEgresos(period) {
       cutout: "72%",
       responsive: true,
       plugins: {
-        legend: { position: "right", labels: { color: "#888", font: { size: 10, family: "Space Grotesk" }, boxWidth: 8, padding: 10 } },
+        legend: { position: chartLegendPosition("right"), labels: { color: "#888", font: { size: window.innerWidth < 768 ? 9 : 10, family: "Space Grotesk" }, boxWidth: 8, padding: 8, usePointStyle: true } },
         tooltip: { backgroundColor: "#1a1a1a", callbacks: {
           label: function(ctx) {
             var t = ctx.dataset.data.reduce(function(a, b) { return a + b; }, 0);
@@ -1243,7 +1452,7 @@ function renderEgresos(period) {
 
   var cont = document.getElementById("egresos-detalle");
   cont.innerHTML = "";
-  SUCURSALES.forEach(function(suc) {
+  sucursales.forEach(function(suc) {
     var suctot = fechas.reduce(function(a, f) { return a + sumField(f, suc, "totalEgresos"); }, 0);
     if (!suctot) return;
     var card = document.createElement("div");
@@ -1273,44 +1482,37 @@ function renderEgresos(period) {
     })(fechas.slice());
     cont.appendChild(card);
   });
+  if (!cont.children.length) cont.innerHTML = '<div class="empty-st">Sin egresos para los filtros seleccionados.</div>';
 }
 
 function initToggleEgresos() {
-  document.getElementById("toggle-egresos").addEventListener("click", function(e) {
-    var btn = e.target.closest(".toggle-btn");
-    if (!btn) return;
-    document.querySelectorAll("#toggle-egresos .toggle-btn").forEach(function(b) { b.classList.remove("active"); });
-    btn.classList.add("active");
-    renderEgresos(btn.getAttribute("data-val"));
+  initReportFilter("egresos-filtros", "egresos", periodEgresos, function(period) {
+    periodEgresos = period;
+    renderEgresos(period);
   });
 }
 
 // ===================== SECCIÓN: MERMA =====================
 function renderMerma() {
-  var mes       = mesOperativo();
-  var fechasMes = diasDeMes(mes);
+  var fechasMes = fechasDePeriodo(periodMerma, document.getElementById("merma-desde").value, document.getElementById("merma-hasta").value);
+  var filtroSuc = document.getElementById("merma-sucursal").value;
+  var sucursales = filtroSuc ? [filtroSuc] : SUCURSALES;
   var strip     = document.getElementById("merma-global-strip");
   var detCont   = document.getElementById("merma-detalle");
   strip.innerHTML   = "";
   detCont.innerHTML = "";
 
   var totalGlobal    = 0;
-  var totalPorMotivo = {};
-  Object.keys(MOTIVOS_MERMA).forEach(function(k) { totalPorMotivo[k] = 0; });
 
   var totalesPorSuc = {};
   SUCURSALES.forEach(function(suc) { totalesPorSuc[suc] = 0; });
 
   fechasMes.forEach(function(f) {
-    SUCURSALES.forEach(function(suc) {
+    sucursales.forEach(function(suc) {
       getMermaRegs(f, suc).forEach(function(r) {
         var t = r.totalMerma || 0;
         totalGlobal        += t;
         totalesPorSuc[suc] += t;
-        (r.items || []).forEach(function(item) {
-          var key = totalPorMotivo[item.motivo] !== undefined ? item.motivo : "otros";
-          totalPorMotivo[key] += item.total || 0;
-        });
       });
     });
   });
@@ -1318,10 +1520,10 @@ function renderMerma() {
   // Strip global
   var stripHtml =
     '<div class="merma-strip-card merma-strip-total">' +
-      '<div class="ms-label">Total mes</div>' +
+      '<div class="ms-label">Total período</div>' +
       '<div class="ms-val">' + fmtM(totalGlobal) + '</div>' +
     '</div>';
-  SUCURSALES.forEach(function(suc) {
+  sucursales.forEach(function(suc) {
     var pct = totalGlobal > 0 ? (totalesPorSuc[suc] / totalGlobal * 100).toFixed(1) : "0.0";
     stripHtml +=
       '<div class="merma-strip-card">' +
@@ -1337,7 +1539,7 @@ function renderMerma() {
     return;
   }
 
-  SUCURSALES.forEach(function(suc) {
+  sucursales.forEach(function(suc) {
     if (!totalesPorSuc[suc]) return;
     var itemsAgrup = {};
 
@@ -1395,25 +1597,31 @@ var HIST_MES_NOMBRES = ["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Jul
 
 function histPeriodLabel(period) {
   if (period === "semana")   return "Últimos 7 días";
+  if (period === "15" || period === "30") return "Últimos " + period + " días";
   if (period === "mes")      { var m = mesOperativo(); return HIST_MES_NOMBRES[parseInt(m.slice(5,7))] + " " + m.slice(0,4); }
   if (period === "anterior") { var m = mesAnterior();  return HIST_MES_NOMBRES[parseInt(m.slice(5,7))] + " " + m.slice(0,4); }
   if (period === "custom" && historialMesViendo) {
     var m = historialMesViendo; return HIST_MES_NOMBRES[parseInt(m.slice(5,7))] + " " + m.slice(0,4);
   }
+  if (period === "personalizado") return "Período personalizado";
   return "Período";
 }
 
 function histGetFechas(period) {
   if (period === "semana")   return ultimosDias(7);
+  if (period === "15" || period === "30") return ultimosDias(parseInt(period, 10));
   if (period === "mes")      return diasDeMes(mesOperativo());
   if (period === "anterior") return diasDeMes(mesAnterior());
   if (period === "custom")   return diasDeMes(historialMesViendo || mesAnterior());
+  if (period === "personalizado") return fechasDePeriodo("custom", document.getElementById("hist-desde").value, document.getElementById("hist-hasta").value);
   return ultimosDias(7);
 }
 
 function renderHistorial(period) {
   periodHist = period;
   var fechas = histGetFechas(period);
+  var filtroSuc = document.getElementById("hist-sucursal").value;
+  var sucursales = filtroSuc ? [filtroSuc] : SUCURSALES;
   var label  = histPeriodLabel(period);
 
   var subtitleEl = document.getElementById("hist-chart-subtitle");
@@ -1423,12 +1631,13 @@ function renderHistorial(period) {
   if (acumTitle) acumTitle.textContent = "Acumulado — " + label;
 
   var tooltipBase = { backgroundColor: "#1a1a1a", borderColor: "#2a2a2a", borderWidth: 1, titleColor: "#f0f0f0", bodyColor: "#666" };
+  var chartMobile = window.innerWidth < 768;
   var scalesBase  = {
-    x: { ticks: { color: "#555", font: { size: 10 } }, grid: { color: "#1f1f1f" } },
-    y: { ticks: { color: "#555", font: { size: 10 }, callback: function(v) { return fmtM(v); } }, grid: { color: "#1f1f1f" } }
+    x: { ticks: { color: "#555", autoSkip: true, maxTicksLimit: chartMobile ? 6 : 12, maxRotation: 0, font: { size: chartMobile ? 8 : 10 } }, grid: { color: "#1f1f1f" } },
+    y: { ticks: { color: "#555", maxTicksLimit: chartMobile ? 5 : 8, font: { size: chartMobile ? 8 : 10 }, callback: function(v) { return fmtM(v); } }, grid: { color: "#1f1f1f" } }
   };
 
-  var datasets = SUCURSALES.map(function(suc) {
+  var datasets = sucursales.map(function(suc) {
     return {
       label: suc,
       data:  fechas.map(function(f) { return sumField(f, suc, "totalIngresos"); }),
@@ -1444,7 +1653,8 @@ function renderHistorial(period) {
     data: { labels: fechas.map(function(d) { return d.slice(5); }), datasets: datasets },
     options: {
       responsive: true,
-      plugins: { legend: { labels: { color: "#888", font: { size: 10, family: "Space Grotesk" }, boxWidth: 8 } }, tooltip: tooltipBase },
+      maintainAspectRatio: false,
+      plugins: { legend: { position: chartLegendPosition("top"), labels: { color: "#888", font: { size: chartMobile ? 8 : 10, family: "Space Grotesk" }, boxWidth: 8, padding: 8, usePointStyle: true } }, tooltip: tooltipBase },
       scales: scalesBase
     }
   });
@@ -1452,14 +1662,14 @@ function renderHistorial(period) {
   // Acumulado table — uses the same period (not hardcoded current month)
   var totalesEl  = document.getElementById("hist-totales-mes");
   var totGlobal  = 0;
-  var totPorSuc  = SUCURSALES.map(function(suc) {
+  var totPorSuc  = sucursales.map(function(suc) {
     var t = fechas.reduce(function(a, f) { return a + sumField(f, suc, "totalIngresos"); }, 0);
     totGlobal += t;
     return t;
   });
 
   var thRow = '<tr>';
-  SUCURSALES.forEach(function(suc) { thRow += '<th style="color:' + COLORS[suc] + '">' + suc + '</th>'; });
+  sucursales.forEach(function(suc) { thRow += '<th style="color:' + COLORS[suc] + '">' + suc + '</th>'; });
   thRow += '<th>TOTAL</th></tr>';
 
   var tdRow = '<tr>';
@@ -1479,7 +1689,7 @@ function renderHistorial(period) {
     var diasCon = 0;
     fechas.forEach(function(f) {
       var teneDatos = false;
-      SUCURSALES.forEach(function(suc) {
+      sucursales.forEach(function(suc) {
         totEg += sumField(f, suc, "totalEgresos");
         if (sumField(f, suc, "totalIngresos") > 0) teneDatos = true;
       });
@@ -1504,14 +1714,14 @@ function renderHistorial(period) {
 
   var tbl   = document.createElement("table");
   var thead = '<thead><tr><th>Fecha</th>';
-  SUCURSALES.forEach(function(s) { thead += '<th style="color:' + COLORS[s] + '">' + s + '</th>'; });
+  sucursales.forEach(function(s) { thead += '<th style="color:' + COLORS[s] + '">' + s + '</th>'; });
   thead += '<th>TOTAL</th></tr></thead>';
 
   var tbody = '<tbody>';
   fechas.forEach(function(f) {
     var rowTotal = 0;
-    var row = '<tr><td style="white-space:nowrap">' + f.slice(5) + '</td>';
-    SUCURSALES.forEach(function(suc) {
+    var row = '<tr><td style="white-space:nowrap">' + fechaDDMMAAAA(f) + '</td>';
+    sucursales.forEach(function(suc) {
       var v = sumField(f, suc, "totalIngresos");
       rowTotal += v;
       row += '<td class="td-ing">' + (v ? fmtM(v) : "—") + '</td>';
@@ -1542,10 +1752,19 @@ function initToggleHist() {
     btn.classList.add("active");
     periodHist = btn.getAttribute("data-val");
     var mesNav = document.getElementById("hist-mes-nav");
+    var customRange = document.getElementById("hist-custom-range");
     if (mesNav) mesNav.style.display = periodHist === "custom" ? "flex" : "none";
+    if (customRange) customRange.classList.toggle("hidden", periodHist !== "personalizado");
     if (periodHist === "custom") actualizarLabelHistMes();
     renderHistorial(periodHist);
   });
+
+  ["hist-desde", "hist-hasta"].forEach(function(id) {
+    document.getElementById(id).addEventListener("change", function() {
+      if (periodHist === "personalizado") renderHistorial(periodHist);
+    });
+  });
+  document.getElementById("hist-sucursal").addEventListener("change", function() { renderHistorial(periodHist); });
 
   var prevBtn = document.getElementById("hist-mes-prev");
   var nextBtn = document.getElementById("hist-mes-next");
@@ -1771,6 +1990,7 @@ function renderCierreStrip(cierresSnap) {
 // ===================== SECCIÓN: DEUDAS =====================
 function guardarDeuda() {
   var cat   = document.getElementById("deuda-categoria").value;
+  var sucursal = document.getElementById("deuda-sucursal").value;
   var desc  = document.getElementById("deuda-descripcion").value.trim();
   var monto = parseFloat(document.getElementById("deuda-monto").value) || 0;
 
@@ -1790,7 +2010,7 @@ function guardarDeuda() {
     }
     btn.textContent = "Guardando...";
     firebase.database().ref("deudas").push({
-      categoria: cat, descripcion: desc,
+      categoria: cat, sucursal: sucursal, descripcion: desc,
       montoOriginal: monto, montoActual: monto,
       fecha: today(), timestamp: Date.now(), pagos: []
     })
@@ -1903,13 +2123,42 @@ function renderDeudas() {
   var lista = document.getElementById("deuda-lista");
   if (!strip || !lista) return;
 
+  var pagoCat = document.getElementById("deuda-pago-categoria");
+  var pagoDeuda = document.getElementById("deuda-pago-id");
+  if (pagoCat && pagoDeuda) {
+    var selectedId = pagoDeuda.value;
+    var elegibles = allDeudas.filter(function(d) { return d.categoria === pagoCat.value && (d.montoActual || 0) > 0; });
+    pagoDeuda.innerHTML = '<option value="">Seleccioná una deuda</option>' + elegibles.map(function(d) {
+      return '<option value="' + d._id + '">' + (d.descripcion || CATS_DEUDA[d.categoria]) + ' · ' + fmtFull(d.montoActual) + '</option>';
+    }).join("");
+    if (elegibles.some(function(d) { return d._id === selectedId; })) pagoDeuda.value = selectedId;
+  }
+
+  var periodo = document.getElementById("deuda-filtro-periodo").value;
+  var sucursalFiltro = document.getElementById("deuda-filtro-sucursal").value;
+  var fechasFiltro = periodo === "todo" ? null : fechasDePeriodo(periodo, document.getElementById("deuda-desde").value, document.getElementById("deuda-hasta").value);
+  var deudaFiltrada = allDeudas.filter(function(deuda) {
+    var sucursalDeuda = deuda.sucursal || "global";
+    if (sucursalFiltro && sucursalDeuda !== sucursalFiltro) return false;
+    if (fechasFiltro && fechasFiltro.indexOf(deuda.fecha) === -1) return false;
+    return true;
+  });
+
   var porCat = {};
   Object.keys(CATS_DEUDA).forEach(function(k) { porCat[k] = 0; });
-  allDeudas.forEach(function(d) {
+  deudaFiltrada.forEach(function(d) {
     var key = porCat[d.categoria] !== undefined ? d.categoria : "proveedores";
     porCat[key] += d.montoActual || 0;
   });
   var totalDeuda = Object.keys(porCat).reduce(function(a, k) { return a + porCat[k]; }, 0);
+  if (window.Chart) {
+    if (charts.deudas) charts.deudas.destroy();
+    charts.deudas = new Chart(document.getElementById("chart-deudas-categorias"), {
+      type: "bar",
+      data: { labels: Object.keys(CATS_DEUDA).map(function(key) { return CATS_DEUDA[key]; }), datasets: [{ data: Object.keys(CATS_DEUDA).map(function(key) { return porCat[key]; }), backgroundColor: "#ff6b6bbb", borderRadius: 4 }] },
+      options: { indexAxis: "y", responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return fmtFull(ctx.raw); } } } }, scales: { x: { ticks: { color: "#888", callback: function(value) { return fmtM(value); } }, grid: { color: "#26313c" } }, y: { ticks: { color: "#aaa" }, grid: { display: false } } } }
+    });
+  }
 
   strip.innerHTML =
     '<div class="deuda-strip-total">' +
@@ -1919,7 +2168,7 @@ function renderDeudas() {
 
   lista.innerHTML = "";
   Object.keys(CATS_DEUDA).forEach(function(cat) {
-    var deudas_cat = allDeudas
+    var deudas_cat = deudaFiltrada
       .filter(function(d) { return d.categoria === cat; })
       .sort(function(a, b) { return b.timestamp - a.timestamp; });
     var totalCat = porCat[cat] || 0;
@@ -1936,7 +2185,7 @@ function renderDeudas() {
       if (d.pagos && d.pagos.length) {
         pagosHtml = '<div class="deuda-pagos">' +
           d.pagos.map(function(p) {
-            return '<span class="deuda-pago-chip">−' + fmtM(p.monto) + ' · ' + (p.fecha || "") + '</span>';
+            return '<span class="deuda-pago-chip">−' + fmtM(p.monto) + ' · ' + fechaDDMMAAAA(p.fecha) + (p.detalle ? ' · ' + p.detalle : '') + '</span>';
           }).join("") +
         '</div>';
       }
@@ -1945,7 +2194,7 @@ function renderDeudas() {
           '<div class="deuda-item-top">' +
             '<div class="deuda-item-left">' +
               (d.descripcion ? '<div class="deuda-desc">' + d.descripcion + '</div>' : '') +
-              '<div class="deuda-fecha">Registrada: ' + (d.fecha || "") + '</div>' +
+              '<div class="deuda-fecha">Registrada: ' + fechaDDMMAAAA(d.fecha) + '</div>' +
             '</div>' +
             '<div class="deuda-item-right">' +
               '<div class="deuda-monto-orig">Original: ' + fmtFull(d.montoOriginal) + '</div>' +
@@ -1956,7 +2205,6 @@ function renderDeudas() {
           '<div class="deuda-bar-label">' + pct + '% abonado</div>' +
           pagosHtml +
           '<div class="deuda-actions">' +
-            '<button class="deuda-btn-abonar" data-id="' + d._id + '" data-monto="' + d.montoActual + '">💳 Abonar</button>' +
             '<button class="deuda-btn-del" data-id="' + d._id + '">✕</button>' +
           '</div>' +
         '</div>';
@@ -1971,13 +2219,67 @@ function renderDeudas() {
     lista.appendChild(card);
   });
 
-  lista.querySelectorAll(".deuda-btn-abonar").forEach(function(btn) {
-    btn.addEventListener("click", function() {
-      abonarDeuda(btn.getAttribute("data-id"), parseFloat(btn.getAttribute("data-monto")));
-    });
-  });
   lista.querySelectorAll(".deuda-btn-del").forEach(function(btn) {
     btn.addEventListener("click", function() { eliminarDeuda(btn.getAttribute("data-id")); });
+  });
+}
+
+function fechaDDMMAAAA(fecha) {
+  if (!fecha) return "—";
+  var partes = String(fecha).slice(0, 10).split("-");
+  return partes.length === 3 ? partes[2] + "/" + partes[1] + "/" + partes[0] : fecha;
+}
+
+function registrarPagoDeuda() {
+  var categoria = document.getElementById("deuda-pago-categoria").value;
+  var deudaId = document.getElementById("deuda-pago-id").value;
+  var monto = parseFloat(document.getElementById("deuda-pago-monto").value) || 0;
+  var fecha = document.getElementById("deuda-pago-fecha").value;
+  var detalle = document.getElementById("deuda-pago-detalle").value.trim();
+  var error = document.getElementById("deuda-pago-error");
+  var button = document.getElementById("btn-registrar-pago");
+  var deuda = allDeudas.find(function(item) { return item._id === deudaId && item.categoria === categoria; });
+
+  if (!deuda || !fecha || monto <= 0) {
+    error.textContent = "Seleccioná categoría y deuda, indicá fecha y un monto válido.";
+    error.classList.remove("hidden");
+    return;
+  }
+  if (monto > deuda.montoActual) {
+    error.textContent = "El pago supera el saldo actual de la deuda.";
+    error.classList.remove("hidden");
+    return;
+  }
+
+  error.classList.add("hidden");
+  button.disabled = true;
+  button.textContent = "Registrando...";
+  var ref = firebase.database().ref("deudas/" + deudaId);
+  ref.transaction(function(current) {
+    if (!current || monto > (current.montoActual || 0)) return;
+    var pagos = Array.isArray(current.pagos) ? current.pagos.slice() : [];
+    pagos.push({ monto: monto, fecha: fecha, detalle: detalle, timestamp: Date.now() });
+    current.pagos = pagos;
+    current.montoActual = Math.max((current.montoActual || 0) - monto, 0);
+    return current;
+  }).then(function(result) {
+    if (!result.committed) throw new Error("El saldo cambió; actualizá la selección e intentá otra vez.");
+    var actualizado = result.snapshot.val();
+    if (actualizado.montoActual === 0) {
+      return firebase.database().ref("deudas_historial").push(
+        Object.assign({}, actualizado, { saldadaEl: fecha, saldadaTs: Date.now() })
+      ).then(function() { return ref.remove(); });
+    }
+    return null;
+  }).then(function() {
+    document.getElementById("deuda-pago-monto").value = "";
+    document.getElementById("deuda-pago-detalle").value = "";
+  }).catch(function(err) {
+    error.textContent = err.message || "No se pudo registrar el pago.";
+    error.classList.remove("hidden");
+  }).finally(function() {
+    button.disabled = false;
+    button.textContent = "+ Registrar Pago";
   });
 }
 
@@ -1991,15 +2293,45 @@ function cicloActual() {
 }
 
 function renderSueldos() {
-  var total    = allEmpleados.reduce(function(a, e) { return a + (e.sueldoBase || 0); }, 0);
-  var bannerEl = document.getElementById("sueldos-total-val");
-  if (bannerEl) bannerEl.textContent = fmtFull(total);
+  var cicloActualId = cicloActual();
+  var sucursalFiltro = document.getElementById("sueldos-sucursal-filtro").value;
+  var busqueda = document.getElementById("sueldos-buscar").value.trim().toLowerCase();
+  var scopeEmpleados = allEmpleados.filter(function(emp) { return !sucursalFiltro || emp.sucursal === sucursalFiltro; });
+  var empleadosVisibles = scopeEmpleados.filter(function(emp) {
+    return !busqueda || [emp.nombre, emp.id, emp.dni, emp.puesto].some(function(value) { return String(value || "").toLowerCase().includes(busqueda); });
+  });
+  var total = scopeEmpleados.reduce(function(a, e) { return a + (Number(e.sueldoBase) || 0); }, 0);
+  var pagado = scopeEmpleados.reduce(function(a, e) { return a + (e.pagadoCiclo === cicloActualId ? Number(e.sueldoBase) || 0 : 0); }, 0);
+  var baseEl = document.getElementById("sueldos-base-val");
+  var paidEl = document.getElementById("sueldos-pagado-val");
+  var pendingEl = document.getElementById("sueldos-total-val");
+  if (baseEl) baseEl.textContent = fmtFull(total);
+  if (paidEl) paidEl.textContent = fmtFull(pagado);
+  if (pendingEl) pendingEl.textContent = fmtFull(total - pagado);
+
+  if (window.Chart) {
+    if (charts.sueldos) charts.sueldos.destroy();
+    var bases = SUCURSALES.map(function(suc) {
+      return allEmpleados.filter(function(emp) { return emp.sucursal === suc; }).reduce(function(sum, emp) { return sum + (Number(emp.sueldoBase) || 0); }, 0);
+    });
+    var pagos = SUCURSALES.map(function(suc) {
+      return allEmpleados.filter(function(emp) { return emp.sucursal === suc && emp.pagadoCiclo === cicloActualId; }).reduce(function(sum, emp) { return sum + (Number(emp.sueldoBase) || 0); }, 0);
+    });
+    charts.sueldos = new Chart(document.getElementById("chart-sueldos-sucursal"), {
+      type: "bar",
+      data: { labels: SUCURSALES, datasets: [
+        { label: "Pagado", data: pagos, backgroundColor: "#00e676bb", stack: "sueldos" },
+        { label: "Pendiente", data: bases.map(function(base, index) { return base - pagos[index]; }), backgroundColor: "#f0a500bb", stack: "sueldos" }
+      ] },
+      options: { responsive: true, plugins: { legend: { position: chartLegendPosition("top"), labels: { color: "#aaa", font: { size: window.innerWidth < 768 ? 9 : 11 }, boxWidth: 8, padding: 8 } }, tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ": " + fmtFull(ctx.raw); } } } }, scales: { x: { stacked: true, ticks: { color: "#aaa", font: { size: 9 } }, grid: { display: false } }, y: { stacked: true, ticks: { color: "#888", font: { size: 9 }, callback: function(value) { return fmtM(value); } }, grid: { color: "#26313c" } } } }
+    });
+  }
 
   var tbody = document.getElementById("emp-tabla-tbody");
   if (!tbody) return;
   tbody.innerHTML = "";
 
-  if (!allEmpleados.length) {
+  if (!empleadosVisibles.length) {
     tbody.innerHTML = "<tr><td colspan='8' class='fact-empty-row'>Sin empleados registrados.</td></tr>";
     return;
   }
@@ -2014,7 +2346,7 @@ function renderSueldos() {
   });
 
   var NUMERIC = ["sueldoBase", "dni"];
-  var sorted  = allEmpleados.slice().sort(function(a, b) {
+  var sorted  = empleadosVisibles.slice().sort(function(a, b) {
     var va = a[sueldosSortCol] != null ? a[sueldosSortCol] : "";
     var vb = b[sueldosSortCol] != null ? b[sueldosSortCol] : "";
     if (NUMERIC.indexOf(sueldosSortCol) !== -1) {
@@ -2058,7 +2390,16 @@ function renderSueldos() {
   tbody.querySelectorAll(".emp-pagado-check").forEach(function(cb) {
     cb.addEventListener("change", function() {
       var empId = cb.getAttribute("data-id");
-      firebase.database().ref("empleados/" + empId + "/pagadoCiclo").set(cb.checked ? cicloActual() : "");
+      var emp = allEmpleados.find(function(item) { return item._id === empId; });
+      if (!emp) return;
+      var estadoAnterior = emp.pagadoCiclo;
+      emp.pagadoCiclo = cb.checked ? cicloActualId : "";
+      renderSueldos();
+      firebase.database().ref("empleados/" + empId + "/pagadoCiclo").set(emp.pagadoCiclo).catch(function(err) {
+        emp.pagadoCiclo = estadoAnterior;
+        renderSueldos();
+        alert("No se pudo actualizar el pago: " + err.message);
+      });
     });
   });
 }
@@ -2191,6 +2532,8 @@ function initSueldos() {
   // One-time event handler setup
   if (!sueldosInitedOnce) {
     sueldosInitedOnce = true;
+    document.getElementById("sueldos-sucursal-filtro").addEventListener("change", renderSueldos);
+    document.getElementById("sueldos-buscar").addEventListener("input", renderSueldos);
 
     // Bidirectional column sort
     document.querySelectorAll(".emp-th-sort").forEach(function(th) {
@@ -2233,6 +2576,18 @@ function initSueldos() {
 
 function initDeudas() {
   document.getElementById("btn-guardar-deuda").addEventListener("click", guardarDeuda);
+  document.getElementById("deuda-pago-fecha").value = today();
+  document.getElementById("deuda-pago-categoria").addEventListener("change", renderDeudas);
+  document.getElementById("btn-registrar-pago").addEventListener("click", registrarPagoDeuda);
+  document.getElementById("deuda-filtro-periodo").addEventListener("change", function() {
+    var custom = document.getElementById("deuda-filtro-periodo").value === "custom";
+    document.getElementById("deuda-custom-range").classList.toggle("hidden", !custom);
+    renderDeudas();
+  });
+  document.getElementById("deuda-filtro-sucursal").addEventListener("change", renderDeudas);
+  ["deuda-desde", "deuda-hasta"].forEach(function(id) {
+    document.getElementById(id).addEventListener("change", renderDeudas);
+  });
   firebase.database().ref("deudas").on("value", function(snap) {
     allDeudas = [];
     if (snap.exists()) {
@@ -2248,6 +2603,17 @@ var cierresSnapCache = null; // cache del último snapshot de cierres
 
 // ===================== FIREBASE =====================
 function initFirebase() {
+  if (!empleadosAnalyticsRef) {
+    empleadosAnalyticsRef = firebase.database().ref("empleados");
+    empleadosAnalyticsRef.on("value", function(snap) {
+      allEmpleados = [];
+      if (snap.exists()) snap.forEach(function(child) {
+        allEmpleados.push(Object.assign({ _id: child.key }, child.val()));
+      });
+      if (sectionActual === "objetivos") renderObjetivos();
+      if (sectionActual === "sueldos") renderSueldos();
+    });
+  }
   firebase.database().ref("registros").on("value", function(snap) {
     allData = {};
     if (snap.exists()) {
@@ -2309,6 +2675,7 @@ function initFirebase() {
     }
     if (sectionActual === "facturas")    renderFacturas();
     if (sectionActual === "proveedores") renderProveedores();
+    if (sectionActual === "objetivos")   renderObjetivos();
   });
 }
 
@@ -2342,6 +2709,7 @@ function levenshtein(a, b) {
 function buildProvLookup() {
   var lookup = {};
   allProveedores.forEach(function(p) {
+    if (p.nombre) lookup[p.nombre.toLowerCase()] = p._id;
     (p.variantes || []).forEach(function(v) {
       lookup[v.toLowerCase()] = p._id;
     });
@@ -2359,11 +2727,14 @@ function getUniqueRawNames() {
   return names;
 }
 
-function getProvStats(variantes) {
+function getProvStats(variantes, filtros) {
   var varSet = {};
   (variantes || []).forEach(function(v) { varSet[v.toLowerCase()] = true; });
   var count = 0, total = 0;
   allFacturas.forEach(function(f) {
+    if (filtros && filtros.sucursal && f.sucursal !== filtros.sucursal) return;
+    if (filtros && filtros.desde && f.fecha < filtros.desde) return;
+    if (filtros && filtros.hasta && f.fecha > filtros.hasta) return;
     if (f.proveedor && varSet[f.proveedor.toLowerCase()]) {
       count++; total += (f.monto || 0);
     }
@@ -2415,8 +2786,41 @@ function renderProveedores() {
   if (sectionActual !== "proveedores") return;
 
   var buscar  = (document.getElementById("prov-buscar").value || "").toLowerCase().trim();
+  var montoMin = parseFloat(document.getElementById("prov-monto-min").value) || 0;
+  var montoMaxRaw = document.getElementById("prov-monto-max").value;
+  var montoMax = montoMaxRaw === "" ? Infinity : parseFloat(montoMaxRaw);
+  var estado = document.getElementById("prov-estado").value;
+  var etiqueta = document.getElementById("prov-etiqueta").value.toLowerCase().trim();
+  var filtrosFactura = {
+    sucursal: document.getElementById("prov-sucursal").value,
+    desde: document.getElementById("prov-desde").value,
+    hasta: document.getElementById("prov-hasta").value
+  };
   var lookup  = buildProvLookup();
   var rawAll  = getUniqueRawNames();
+  var statsAll = allProveedores.map(function(p) { return { proveedor: p, stats: getProvStats((p.variantes || []).concat(p.nombre || []), filtrosFactura) }; });
+  var facturasScope = allFacturas.filter(function(f) {
+    return (!filtrosFactura.sucursal || f.sucursal === filtrosFactura.sucursal) &&
+      (!filtrosFactura.desde || f.fecha >= filtrosFactura.desde) &&
+      (!filtrosFactura.hasta || f.fecha <= filtrosFactura.hasta);
+  });
+  var totalHistorico = facturasScope.reduce(function(total, f) { return total + (Number(f.monto) || 0); }, 0);
+  var totalConFactura = statsAll.filter(function(item) { return item.stats.count > 0; }).length;
+  var topProveedor = statsAll.slice().sort(function(a, b) { return b.stats.total - a.stats.total; })[0];
+  if (window.Chart) {
+    if (charts.proveedores) charts.proveedores.destroy();
+    var topProveedores = statsAll.filter(function(item) { return item.stats.count > 0; }).sort(function(a, b) { return b.stats.total - a.stats.total; }).slice(0, 5);
+    charts.proveedores = new Chart(document.getElementById("chart-prov-top"), {
+      type: "bar",
+      data: { labels: topProveedores.map(function(item) { return item.proveedor.nombre; }), datasets: [{ data: topProveedores.map(function(item) { return item.stats.total; }), backgroundColor: "#00e676bb", borderRadius: 4 }] },
+      options: { indexAxis: "y", responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return fmtFull(ctx.raw); } } } }, scales: { x: { ticks: { color: "#888", callback: function(value) { return fmtM(value); } }, grid: { color: "#26313c" } }, y: { ticks: { color: "#aaa" }, grid: { display: false } } } }
+    });
+  }
+  document.getElementById("prov-kpis").innerHTML =
+    '<div class="global-card"><div class="gc-label">Monto del período</div><div class="gc-val">' + fmtFull(totalHistorico) + '</div></div>' +
+    '<div class="global-card"><div class="gc-label">Facturas del período</div><div class="gc-val">' + facturasScope.length + '</div></div>' +
+    '<div class="global-card"><div class="gc-label">Promedio por proveedor</div><div class="gc-val">' + fmtFull(totalConFactura ? totalHistorico / totalConFactura : 0) + '</div></div>' +
+    '<div class="global-card"><div class="gc-label">Mayor facturación</div><div class="gc-val">' + (topProveedor ? topProveedor.proveedor.nombre + ' · ' + fmtM(topProveedor.stats.total) : '—') + '</div></div>';
 
   var unmatched = rawAll.filter(function(n) { return !lookup[n.toLowerCase()]; });
   var sugerencias = findSugerencias(unmatched);
@@ -2494,12 +2898,16 @@ function renderProveedores() {
 
   // --- Lista confirmada ---
   var lista = document.getElementById("prov-lista");
-  var provFiltrados = buscar
-    ? allProveedores.filter(function(p) {
-        return p.nombre.toLowerCase().includes(buscar) ||
-          (p.variantes || []).some(function(v) { return v.toLowerCase().includes(buscar); });
-      })
-    : allProveedores.slice();
+  var provFiltrados = allProveedores.filter(function(p) {
+    var stats = getProvStats((p.variantes || []).concat(p.nombre || []), filtrosFactura);
+    var tags = p.etiquetas || [];
+    var matchSearch = !buscar || p.nombre.toLowerCase().includes(buscar) ||
+      (p.variantes || []).some(function(v) { return v.toLowerCase().includes(buscar); }) ||
+      tags.some(function(tag) { return tag.toLowerCase().includes(buscar); });
+    var matchTag = !etiqueta || tags.some(function(tag) { return tag.toLowerCase().includes(etiqueta); });
+    var matchStatus = !estado || (estado === "con" ? stats.count > 0 : stats.count === 0);
+    return matchSearch && matchTag && matchStatus && stats.total >= montoMin && stats.total <= montoMax;
+  });
   provFiltrados.sort(function(a, b) { return a.nombre.localeCompare(b.nombre); });
 
   if (!provFiltrados.length) {
@@ -2513,7 +2921,7 @@ function renderProveedores() {
 
   lista.innerHTML = "";
   provFiltrados.forEach(function(p) {
-    var stats      = getProvStats(p.variantes);
+    var stats      = getProvStats((p.variantes || []).concat(p.nombre || []), filtrosFactura);
     var card       = document.createElement("div");
     card.className = "prov-card";
     var variasHtml = (p.variantes || []).map(function(v) {
@@ -2533,12 +2941,26 @@ function renderProveedores() {
         '<span class="prov-stats-sep">·</span>' +
         '<span>' + fmtFull(stats.total) + '</span>' +
       '</div>' +
+      '<div class="prov-card-tags">' +
+        (p.etiquetas || []).map(function(tag) { return '<span class="prov-tag">' + tag + '</span>'; }).join("") +
+        '<button class="prov-btn-tags" data-id="' + p._id + '">Etiquetas</button>' +
+      '</div>' +
       '<div class="prov-card-variantes">' + variasHtml + '</div>';
     lista.appendChild(card);
   });
 
   lista.querySelectorAll(".prov-btn-edit").forEach(function(btn) {
     btn.addEventListener("click", function() { abrirModalRenombrar(btn.getAttribute("data-id")); });
+  });
+  lista.querySelectorAll(".prov-btn-tags").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var proveedor = allProveedores.find(function(p) { return p._id === btn.getAttribute("data-id"); });
+      if (!proveedor) return;
+      var raw = prompt("Etiquetas separadas por coma:", (proveedor.etiquetas || []).join(", "));
+      if (raw === null) return;
+      var tags = Array.from(new Set(raw.split(",").map(function(tag) { return tag.trim(); }).filter(Boolean)));
+      firebase.database().ref("config/proveedores/" + proveedor._id + "/etiquetas").set(tags);
+    });
   });
   lista.querySelectorAll(".prov-btn-del").forEach(function(btn) {
     btn.addEventListener("click", function() {
@@ -2657,15 +3079,22 @@ function initProveedores() {
     }
     updateProveedoresDatalist();
     if (sectionActual === "proveedores") renderProveedores();
+    if (sectionActual === "facturas") renderFacturas();
   });
 
   document.getElementById("prov-buscar").addEventListener("input", renderProveedores);
+  ["prov-monto-min", "prov-monto-max", "prov-etiqueta", "prov-desde", "prov-hasta"].forEach(function(id) {
+    document.getElementById(id).addEventListener("input", renderProveedores);
+  });
+  document.getElementById("prov-estado").addEventListener("change", renderProveedores);
+  document.getElementById("prov-sucursal").addEventListener("change", renderProveedores);
 }
 
 // ===================== INIT =====================
 function initApp() {
-  document.getElementById("fecha-hoy").textContent =
-    new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).toUpperCase();
+  document.documentElement.lang = "es-AR";
+  document.querySelectorAll('input[type="date"]').forEach(function(input) { input.lang = "es-AR"; });
+  document.getElementById("fecha-hoy").textContent = fechaDDMMAAAA(fechaOperativa());
 
   function tickReloj() {
     document.getElementById("reloj").textContent =
@@ -2681,6 +3110,10 @@ function initApp() {
   initSemanal();
   initToggleParticipacion();
   initToggleEgresos();
+  initReportFilter("merma-filtros", "merma", periodMerma, function(period) {
+    periodMerma = period;
+    renderMerma();
+  });
   initToggleHist();
   initToggleHome();
   initFeedFilters();
@@ -2694,6 +3127,9 @@ document.addEventListener("DOMContentLoaded", function() {
     Chart.defaults.font.family = "Space Grotesk, sans-serif";
     Chart.defaults.font.size   = 11;
   }
+
+  if (!ensureFirebaseReady("dashboard")) return;
+
   var yaAutenticado = initDashLogin();
   if (yaAutenticado) initApp();
 });

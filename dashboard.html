@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es-AR">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Verde Tokio — Dashboard</title>
-  <link rel="stylesheet" href="styles/dashboard.css">
+  <link rel="stylesheet" href="styles/dashboard.css?v=20261009-13">
   <link rel="manifest" href="manifest-dashboard.json">
   <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,7 +15,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-  <script src="config.js"></script>
+  <script src="config.js?v=20261009-1"></script>
   <script>
     firebase.initializeApp(VV_CONFIG.firebase);
   </script>
@@ -33,6 +33,7 @@
         <input type="password" id="db-login-input" placeholder="Clave" autocomplete="current-password">
       </div>
       <div class="db-login-error hidden" id="db-login-error">Clave incorrecta</div>
+      <div class="db-login-error hidden" id="db-config-error">No se pudo inicializar Firebase.</div>
       <button class="db-login-btn" id="db-login-btn">Ingresar</button>
     </div>
   </div>
@@ -43,7 +44,9 @@
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-logo">VV<span>GLOBAL</span></div>
-      <button class="sidebar-close" id="sidebar-close">✕</button>
+      <button class="sidebar-close" id="sidebar-close" aria-label="Ocultar menú">
+        <span></span><span></span><span></span>
+      </button>
     </div>
     <ul class="sidebar-menu">
       <li class="menu-item active" data-section="home"><span class="menu-icon">⬡</span>Dashboard</li>
@@ -61,15 +64,16 @@
     </div>
   </nav>
 
-  <!-- TOPBAR -->
-  <header class="topbar">
-    <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
-    <div class="topbar-center" id="section-title">Verde Tokio S.R.L</div>
-    <div class="reloj" id="reloj">--:--</div>
-  </header>
+  <div class="app-shell">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <button class="hamburger" id="hamburger" aria-label="Mostrar menú"><span></span><span></span><span></span></button>
+      <div class="topbar-center" id="section-title">Verde Tokio S.R.L</div>
+      <div class="reloj" id="reloj">--:--</div>
+    </header>
 
-  <!-- MAIN -->
-  <main class="main-content">
+    <!-- MAIN -->
+    <main class="main-content">
 
     <!-- MODAL CLAVE ADMIN -->
     <div id="admin-modal" class="admin-modal-overlay hidden">
@@ -143,8 +147,8 @@
         <button class="toggle-btn" data-val="periodo">Período</button>
       </div>
       <div id="home-periodo-filtro" style="display:none;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <input type="date" id="home-desde" class="fact-filtro-input">
-        <input type="date" id="home-hasta" class="fact-filtro-input">
+          <input type="date" id="home-desde" class="fact-filtro-input" lang="es-AR">
+          <input type="date" id="home-hasta" class="fact-filtro-input" lang="es-AR">
       </div>
       <div class="suc-grid" id="suc-grid-home"></div>
 
@@ -234,6 +238,13 @@
           <option value="BEIRO">BEIRO</option>
           <option value="GOYENA">GOYENA</option>
         </select>
+        <select id="feed-filtro-periodo" class="fact-filtro-select" style="flex:1;min-width:130px" aria-label="Período de actividad">
+          <option value="hoy">Hoy</option>
+          <option value="7" selected>Últimos 7 días</option>
+          <option value="15">Últimos 15 días</option>
+          <option value="30">Últimos 30 días</option>
+          <option value="todo">Todo el historial</option>
+        </select>
         <button class="fact-filtro-clear" id="feed-filtro-clear" style="white-space:nowrap">✕</button>
       </div>
       <div class="feed-card" id="feed-home"></div>
@@ -251,6 +262,17 @@
             <button class="fact-nav-btn" id="obj-mes-next">›</button>
           </div>
           <button class="btn-outline" id="btn-edit-obj">✎ Editar</button>
+        </div>
+      </div>
+      <div class="obj-tools">
+        <select id="obj-sucursal-filtro" class="fact-filtro-select" aria-label="Sucursal objetivo">
+          <option value="">Todas las sucursales</option>
+          <option value="NAZCA">NAZCA</option><option value="OLAZABAL">OLAZABAL</option>
+          <option value="CUENCA">CUENCA</option><option value="BEIRO">BEIRO</option><option value="GOYENA">GOYENA</option>
+        </select>
+        <div class="view-toggle" id="obj-view-toggle" role="group" aria-label="Modo de visualización">
+          <button type="button" class="active" data-view="cards">Cuadros</button>
+          <button type="button" data-view="list">Lista</button>
         </div>
       </div>
       <div class="obj-modal hidden" id="obj-modal">
@@ -300,7 +322,7 @@
           </div>
           <div class="fact-field">
             <label>Fecha</label>
-            <input type="date" id="fact-fecha">
+            <input type="date" id="fact-fecha" lang="es-AR">
           </div>
           <div class="fact-field">
             <label>Monto</label>
@@ -320,6 +342,7 @@
           <button class="fact-nav-btn" id="fact-mes-next">›</button>
         </div>
       </div>
+      <div class="global-strip" id="fact-kpis"></div>
       <div class="fact-resumen-wrap">
         <table class="fact-resumen-tabla" id="fact-resumen-tabla">
           <thead id="fact-resumen-thead"></thead>
@@ -343,10 +366,10 @@
                  list="proveedores-list" autocomplete="off" class="fact-filtro-input">
         </div>
         <div class="fact-filtro-wrap">
-          <input type="date" id="filtro-fecha-desde" class="fact-filtro-input" title="Desde">
+          <input type="date" id="filtro-fecha-desde" class="fact-filtro-input" title="Desde" lang="es-AR">
         </div>
         <div class="fact-filtro-wrap">
-          <input type="date" id="filtro-fecha-hasta" class="fact-filtro-input" title="Hasta">
+          <input type="date" id="filtro-fecha-hasta" class="fact-filtro-input" title="Hasta" lang="es-AR">
         </div>
         <button class="fact-filtro-clear" id="btn-limpiar-filtros">✕ Limpiar</button>
       </div>
@@ -360,6 +383,14 @@
           </thead>
           <tbody id="fact-lista-tbody"></tbody>
         </table>
+      </div>
+      <div class="section-top-row fact-more-providers">
+        <span class="section-desc">Análisis de proveedores del mes seleccionado</span>
+        <button class="btn-outline" id="btn-ver-proveedores">Ver más proveedores →</button>
+      </div>
+      <div class="charts-row2 fact-top-charts">
+        <div class="chart-card"><div class="chart-subtitle">Mayor volumen facturado</div><canvas id="chart-facturas-monto"></canvas></div>
+        <div class="chart-card"><div class="chart-subtitle">Mayor frecuencia de facturas</div><canvas id="chart-facturas-cantidad"></canvas></div>
       </div>
     </section>
 
@@ -390,6 +421,14 @@
             </div>
           </div>
           <div class="fact-field">
+            <label for="deuda-sucursal">Sucursal responsable</label>
+            <select id="deuda-sucursal" class="fact-filtro-select">
+              <option value="">Global / sin asignar</option>
+              <option value="NAZCA">NAZCA</option><option value="OLAZABAL">OLAZABAL</option>
+              <option value="CUENCA">CUENCA</option><option value="BEIRO">BEIRO</option><option value="GOYENA">GOYENA</option>
+            </select>
+          </div>
+          <div class="fact-field">
             <label>Descripción</label>
             <input type="text" id="deuda-descripcion" placeholder="Detalle (opcional)">
           </div>
@@ -403,19 +442,77 @@
         </div>
         <button class="btn-guardar-fact" id="btn-guardar-deuda">+ Registrar Deuda</button>
       </div>
+      <div class="report-filters deuda-filtros" id="deuda-filtros">
+        <select id="deuda-filtro-periodo" class="fact-filtro-select" aria-label="Período de deudas">
+          <option value="todo">Todo el historial</option><option value="hoy">Hoy</option>
+          <option value="7">Últimos 7 días</option><option value="15">Últimos 15 días</option>
+          <option value="30">Últimos 30 días</option><option value="mes">Mes actual</option>
+          <option value="custom">Período personalizado</option>
+        </select>
+        <div class="date-range hidden" id="deuda-custom-range">
+          <input type="date" id="deuda-desde" class="fact-filtro-input" lang="es-AR" aria-label="Fecha desde">
+          <input type="date" id="deuda-hasta" class="fact-filtro-input" lang="es-AR" aria-label="Fecha hasta">
+        </div>
+        <select id="deuda-filtro-sucursal" class="fact-filtro-select" aria-label="Sucursal responsable">
+          <option value="">Todas las sucursales</option><option value="global">Global / sin asignar</option>
+          <option value="NAZCA">NAZCA</option><option value="OLAZABAL">OLAZABAL</option>
+          <option value="CUENCA">CUENCA</option><option value="BEIRO">BEIRO</option><option value="GOYENA">GOYENA</option>
+        </select>
+      </div>
       <div class="block-title">Resumen por categoría</div>
       <div class="deuda-resumen-strip" id="deuda-resumen-strip"></div>
+      <div class="chart-card"><div class="chart-subtitle">Saldo adeudado por categoría</div><canvas id="chart-deudas-categorias"></canvas></div>
       <div class="block-title">Detalle de deudas activas</div>
       <div class="deuda-lista" id="deuda-lista"></div>
+      <div class="deuda-form-card deuda-pago-card">
+        <div class="block-title" style="margin-top:0">Registrar pago de deuda</div>
+        <div class="deuda-form-grid">
+          <div class="fact-field">
+            <label for="deuda-pago-categoria">Categoría</label>
+            <select id="deuda-pago-categoria" class="fact-filtro-select">
+              <option value="">Seleccioná una categoría</option>
+              <option value="banco">Banco</option><option value="cuenta_corriente">Cuenta Corriente</option>
+              <option value="cheques">Cheques</option><option value="tarjetas">Tarjetas</option>
+              <option value="proveedores">Proveedores</option><option value="sueldos">Sueldos</option>
+              <option value="cargas_sociales">Cargas Sociales</option><option value="servicios">Servicios</option>
+              <option value="alquileres">Alquileres</option><option value="impuestos">Impuestos</option>
+            </select>
+          </div>
+          <div class="fact-field"><label for="deuda-pago-id">Deuda</label><select id="deuda-pago-id" class="fact-filtro-select"><option value="">Elegí primero una categoría</option></select></div>
+          <div class="fact-field"><label for="deuda-pago-monto">Monto</label><div class="fact-monto-wrap"><span class="fact-prefix">$</span><input type="number" id="deuda-pago-monto" min="0" step="1" placeholder="0"></div></div>
+          <div class="fact-field"><label for="deuda-pago-fecha">Fecha</label><input type="date" id="deuda-pago-fecha" class="fact-filtro-input" lang="es-AR"></div>
+          <div class="fact-field"><label for="deuda-pago-detalle">Detalle / observaciones</label><input type="text" id="deuda-pago-detalle" placeholder="Comprobante, medio de pago..."></div>
+        </div>
+        <div class="db-login-error hidden" id="deuda-pago-error"></div>
+        <button class="btn-guardar-fact" id="btn-registrar-pago">+ Registrar Pago</button>
+      </div>
     </section>
 
     <!-- EGRESOS -->
     <section class="section" id="section-egresos">
       <div class="section-desc">Distribución de egresos por motivo</div>
-      <div class="toggle-row" id="toggle-egresos">
-        <button class="toggle-btn active" data-val="hoy">Hoy</button>
-        <button class="toggle-btn" data-val="mes">Este mes</button>
+      <div class="report-filters" id="egresos-filtros">
+        <div class="toggle-row">
+          <button class="toggle-btn" data-period="hoy">Hoy</button>
+          <button class="toggle-btn active" data-period="7">7 días</button>
+          <button class="toggle-btn" data-period="15">15 días</button>
+          <button class="toggle-btn" data-period="30">30 días</button>
+          <button class="toggle-btn" data-period="mes">Mes actual</button>
+          <button class="toggle-btn" data-period="custom">Período</button>
+        </div>
+        <div class="report-filter-controls">
+          <div class="date-range hidden" id="egresos-custom-range">
+            <input type="date" id="egresos-desde" class="fact-filtro-input" lang="es-AR" aria-label="Fecha desde">
+            <input type="date" id="egresos-hasta" class="fact-filtro-input" lang="es-AR" aria-label="Fecha hasta">
+          </div>
+          <select id="egresos-sucursal" class="fact-filtro-select" aria-label="Filtrar por sucursal">
+            <option value="">Todas las sucursales</option>
+            <option value="NAZCA">NAZCA</option><option value="OLAZABAL">OLAZABAL</option>
+            <option value="CUENCA">CUENCA</option><option value="BEIRO">BEIRO</option><option value="GOYENA">GOYENA</option>
+          </select>
+        </div>
       </div>
+      <div class="global-strip" id="egresos-kpis"></div>
       <div class="chart-card">
         <div class="chart-subtitle">Distribución global</div>
         <canvas id="chart-egresos-donut"></canvas>
@@ -426,7 +523,26 @@
 
     <!-- MERMA -->
     <section class="section" id="section-merma">
-      <div class="section-desc">Mercadería perdida, vencida o deteriorada — mes actual</div>
+      <div class="section-desc">Mercadería perdida, vencida o deteriorada</div>
+      <div class="report-filters" id="merma-filtros">
+        <div class="toggle-row">
+          <button class="toggle-btn" data-period="semana">Semana</button>
+          <button class="toggle-btn active" data-period="mes">Mes actual</button>
+          <button class="toggle-btn" data-period="anterior">Mes anterior</button>
+          <button class="toggle-btn" data-period="custom">Período</button>
+        </div>
+        <div class="report-filter-controls">
+          <div class="date-range hidden" id="merma-custom-range">
+            <input type="date" id="merma-desde" class="fact-filtro-input" lang="es-AR" aria-label="Fecha desde">
+            <input type="date" id="merma-hasta" class="fact-filtro-input" lang="es-AR" aria-label="Fecha hasta">
+          </div>
+          <select id="merma-sucursal" class="fact-filtro-select" aria-label="Filtrar por sucursal">
+            <option value="">Todas las sucursales</option>
+            <option value="NAZCA">NAZCA</option><option value="OLAZABAL">OLAZABAL</option>
+            <option value="CUENCA">CUENCA</option><option value="BEIRO">BEIRO</option><option value="GOYENA">GOYENA</option>
+          </select>
+        </div>
+      </div>
       <div class="merma-global-strip" id="merma-global-strip"></div>
       <div class="block-title">Detalle por sucursal</div>
       <div id="merma-detalle"></div>
@@ -435,20 +551,32 @@
     <!-- HISTORIAL -->
     <section class="section" id="section-historial">
       <div class="section-desc">Evolución y comparación histórica</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+      <div class="historial-toolbar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
         <div class="toggle-row" id="toggle-hist" style="margin-bottom:0">
           <button class="toggle-btn active" data-val="semana">Semana</button>
+          <button class="toggle-btn" data-val="15">15 días</button>
+          <button class="toggle-btn" data-val="30">30 días</button>
           <button class="toggle-btn" data-val="mes">Mes actual</button>
           <button class="toggle-btn" data-val="anterior">Mes anterior</button>
           <button class="toggle-btn" data-val="custom">Mes ›</button>
+          <button class="toggle-btn" data-val="personalizado">Período</button>
+        </div>
+        <div class="date-range hidden" id="hist-custom-range">
+          <input type="date" id="hist-desde" class="fact-filtro-input" lang="es-AR" aria-label="Fecha desde">
+          <input type="date" id="hist-hasta" class="fact-filtro-input" lang="es-AR" aria-label="Fecha hasta">
         </div>
         <div id="hist-mes-nav" class="fact-mes-nav" style="display:none">
           <button class="fact-nav-btn" id="hist-mes-prev">‹</button>
           <span id="hist-mes-label" style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--text);font-weight:600;min-width:100px;text-align:center">—</span>
           <button class="fact-nav-btn" id="hist-mes-next">›</button>
         </div>
+        <select id="hist-sucursal" class="fact-filtro-select" aria-label="Filtrar historial por sucursal">
+          <option value="">Todas las sucursales</option>
+          <option value="NAZCA">NAZCA</option><option value="OLAZABAL">OLAZABAL</option>
+          <option value="CUENCA">CUENCA</option><option value="BEIRO">BEIRO</option><option value="GOYENA">GOYENA</option>
+        </select>
       </div>
-      <div class="chart-card">
+      <div class="chart-card historial-chart-card">
         <div class="chart-subtitle" id="hist-chart-subtitle">Ingresos diarios por sucursal</div>
         <canvas id="chart-hist"></canvas>
       </div>
@@ -518,12 +646,19 @@
 
       <div id="sueldos-content" style="display:none">
 
-        <div class="sueldos-total-banner">
-          <span class="sueldos-total-label">Total sueldos base</span>
-          <span class="sueldos-total-val" id="sueldos-total-val">—</span>
+          <div class="sueldos-total-banner">
+            <div class="sueldos-total-metric"><span class="sueldos-total-label">Base total</span><span class="sueldos-total-val" id="sueldos-base-val">—</span></div>
+            <div class="sueldos-total-metric"><span class="sueldos-total-label">Pagado en el ciclo</span><span class="sueldos-total-val paid" id="sueldos-pagado-val">—</span></div>
+            <div class="sueldos-total-metric"><span class="sueldos-total-label">Pendiente</span><span class="sueldos-total-val pending" id="sueldos-total-val">—</span></div>
         </div>
 
+        <div class="chart-card"><div class="chart-subtitle">Base salarial · pagado vs. pendiente</div><canvas id="chart-sueldos-sucursal"></canvas></div>
+
         <div class="block-title">Empleados activos</div>
+        <div class="fact-filtros sueldos-filtros">
+          <select id="sueldos-sucursal-filtro" class="fact-filtro-select"><option value="">Todas las sucursales</option><option value="NAZCA">NAZCA</option><option value="OLAZABAL">OLAZABAL</option><option value="CUENCA">CUENCA</option><option value="BEIRO">BEIRO</option><option value="GOYENA">GOYENA</option></select>
+          <input type="search" id="sueldos-buscar" class="fact-filtro-input" placeholder="Buscar empleado...">
+        </div>
         <div class="fact-lista-wrap" style="overflow-x:auto">
           <table class="fact-lista-tabla" id="emp-tabla" style="min-width:680px">
             <thead>
@@ -599,8 +734,19 @@
     <section class="section" id="section-proveedores">
       <div class="section-top-row">
         <div class="section-desc">Base de proveedores unificada, extraída de las facturas cargadas</div>
-        <input type="text" id="prov-buscar" placeholder="Buscar..." class="fact-filtro-input" style="width:200px">
+        <input type="text" id="prov-buscar" placeholder="Buscar proveedor..." class="fact-filtro-input">
       </div>
+      <div class="prov-kpi-grid" id="prov-kpis"></div>
+      <div class="fact-filtros prov-filtros">
+        <input type="number" id="prov-monto-min" class="fact-filtro-input" min="0" placeholder="Facturación desde $">
+        <input type="number" id="prov-monto-max" class="fact-filtro-input" min="0" placeholder="Facturación hasta $">
+        <select id="prov-estado" class="fact-filtro-select"><option value="">Todos los estados</option><option value="con">Con facturación</option><option value="sin">Sin facturación</option></select>
+        <input type="text" id="prov-etiqueta" class="fact-filtro-input" placeholder="Filtrar por etiqueta">
+        <select id="prov-sucursal" class="fact-filtro-select"><option value="">Todas las sucursales</option><option value="NAZCA">NAZCA</option><option value="OLAZABAL">OLAZABAL</option><option value="CUENCA">CUENCA</option><option value="BEIRO">BEIRO</option><option value="GOYENA">GOYENA</option></select>
+        <input type="date" id="prov-desde" class="fact-filtro-input" lang="es-AR" aria-label="Fecha desde">
+        <input type="date" id="prov-hasta" class="fact-filtro-input" lang="es-AR" aria-label="Fecha hasta">
+      </div>
+      <div class="chart-card"><div class="chart-subtitle">Proveedores por volumen facturado</div><canvas id="chart-prov-top"></canvas></div>
 
       <div id="prov-sugerencias-wrap" style="display:none">
         <div class="block-title">Sugerencias de unificación</div>
@@ -633,10 +779,12 @@
 
   </main>
 
-  <script src="js/dashboard.js"></script>
+  <script src="js/dashboard.js?v=20261009-15"></script>
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/vv-global/js/sw.js");
+      navigator.serviceWorker.register("./js/sw.js").catch(function(err) {
+        console.warn("Service worker no registrado:", err);
+      });
     }
   </script>
 </body>

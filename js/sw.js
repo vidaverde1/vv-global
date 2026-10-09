@@ -1,22 +1,23 @@
 // Service Worker — VV Global PWA
-const CACHE_NAME = "vv-global-v4";
-const BASE = "/vv-global";
+const CACHE_NAME = "vv-global-v25";
+const BASE = (self.location.pathname.replace(/\/js\/sw\.js$/, "") || "/").replace(/\/$/, "") || "/";
+const APP_BASE = BASE === "/" ? "" : BASE;
 
 self.addEventListener("install", function(event) {
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
       return cache.addAll([
-        BASE + "/sucursal.html",
-        BASE + "/dashboard.html",
-        BASE + "/config.js",
-        BASE + "/manifest-sucursal.json",
-        BASE + "/manifest-dashboard.json",
-        BASE + "/styles/sucursal.css",
-        BASE + "/styles/dashboard.css",
-        BASE + "/js/sucursal.js",
-        BASE + "/js/dashboard.js",
-        BASE + "/icons/icon-sucursal-192.png",
-        BASE + "/icons/icon-dashboard-192.png",
+        APP_BASE + "/sucursal.html",
+        APP_BASE + "/dashboard.html",
+        APP_BASE + "/config.js",
+        APP_BASE + "/manifest-sucursal.json",
+        APP_BASE + "/manifest-dashboard.json",
+        APP_BASE + "/styles/sucursal.css",
+        APP_BASE + "/styles/dashboard.css",
+        APP_BASE + "/js/sucursal.js",
+        APP_BASE + "/js/dashboard.js",
+        APP_BASE + "/icons/icon-sucursal-192.png",
+        APP_BASE + "/icons/icon-dashboard-192.png",
       ]);
     })
   );
