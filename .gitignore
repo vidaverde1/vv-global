@@ -10,3 +10,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Dependencias
+node_modules/
+package-lock.json

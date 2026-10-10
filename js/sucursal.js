@@ -37,6 +37,8 @@ var STORAGE_KEY       = "vvglobal_sucursal";
 var AUTH_SUC_KEY      = "vvglobal_suc_auth";
 var AUTH_SUC_DURACION = 8 * 60 * 60 * 1000; // 8 horas
 
+function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function(c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+
 function readStorage(key, fallback) {
   try {
     var raw = localStorage.getItem(key);
@@ -459,7 +461,7 @@ function renderMovLista() {
     chip.className = "item-chip " + (isInter ? "ingreso" : "egreso");
     chip.innerHTML =
       '<span class="chip-badge">' + (isInter ? "↑ " + m.origen + (m.dobleEntrada ? " · doble entrada" : "") : (CATS_EG[m.cat] || m.cat)) + '</span>' +
-      '<span class="chip-det">'   + (m.detalle || "—") + '</span>' +
+      '<span class="chip-det">'   + esc(m.detalle || "—") + '</span>' +
       '<span class="chip-val">'   + fmt(m.monto) + '</span>' +
       '<button class="chip-del" data-idx="' + idx + '">✕</button>';
     lista.appendChild(chip);
@@ -593,8 +595,8 @@ function renderMermaLista() {
     var chip = document.createElement("div");
     chip.className = "item-chip merma";
     chip.innerHTML =
-      '<span class="chip-badge">' + (MOTIVOS_MERMA[m.motivo] || m.motivo) + '</span>' +
-      '<span class="chip-det">'   + m.cantidad + " × " + m.producto + (m.detalle ? " · " + m.detalle : "") + '</span>' +
+      '<span class="chip-badge">' + esc(MOTIVOS_MERMA[m.motivo] || m.motivo) + '</span>' +
+      '<span class="chip-det">'   + m.cantidad + " × " + esc(m.producto) + (m.detalle ? " · " + esc(m.detalle) : "") + '</span>' +
       '<span class="chip-val">'   + fmt(m.total) + '</span>' +
       '<button class="chip-del" data-idx="' + idx + '">✕</button>';
     lista.appendChild(chip);
@@ -687,7 +689,7 @@ function renderCierre(cierreSnap) {
       '<div>Contado: <strong>'   + fmt(d.contado)      + '</strong></div>' +
       '<div>Sistema: <strong>'   + fmt(d.saldoSistema) + '</strong></div>' +
       '<div>Diferencia: <strong style="color:' + difColor + '">' + difSign + fmt(d.diferencia) + '</strong></div>' +
-      (d.nota ? '<div style="margin-top:6px;font-style:italic;opacity:.7">' + d.nota + '</div>' : '');
+      (d.nota ? '<div style="margin-top:6px;font-style:italic;opacity:.7">' + esc(d.nota) + '</div>' : '');
   } else {
     yaHecho.classList.add("hidden");
     formEl.classList.remove("hidden");
@@ -833,7 +835,7 @@ function renderResumen() {
         '<div class="reg-header">' +
           '<span class="reg-hora">' + hora + '</span>' +
           '<span class="reg-tipo-badge ventas">Ventas</span>' +
-          (reg.nota ? '<span class="reg-nota">' + reg.nota + '</span>' : '') +
+          (reg.nota ? '<span class="reg-nota">' + esc(reg.nota) + '</span>' : '') +
           acciones +
         '</div>' +
         '<div class="reg-detalles">' + chips + '</div>' +
@@ -845,10 +847,10 @@ function renderResumen() {
       card.className = "reg-card mov-card";
       var egChips = (reg.egresosDetalle || []).map(function(eg) {
         var lbl = eg.cat === "transferencia-inter" ? "→ Transferencia" : (CATS_EG[eg.cat] || eg.cat);
-        return '<span class="det-item eg">' + lbl + (eg.detalle ? " · " + eg.detalle : "") + ': ' + fmt(eg.monto) + '</span>';
+        return '<span class="det-item eg">' + lbl + (eg.detalle ? " · " + esc(eg.detalle) : "") + ': ' + fmt(eg.monto) + '</span>';
       }).join("");
       var intChips = (reg.ingresosInter || []).map(function(inter) {
-        return '<span class="det-item inter">↑ ' + inter.origen + (inter.detalle ? " · " + inter.detalle : "") + ': ' + fmt(inter.monto) + '</span>';
+        return '<span class="det-item inter">↑ ' + inter.origen + (inter.detalle ? " · " + esc(inter.detalle) : "") + ': ' + fmt(inter.monto) + '</span>';
       }).join("");
       var tots = "";
       if (reg.totalEgresos)  tots += '<span class="eg-tot">-'  + fmt(reg.totalEgresos)  + '</span>';
@@ -865,7 +867,7 @@ function renderResumen() {
     } else if (reg.tipo === "merma") {
       card.className = "reg-card merma-card";
       var mChips = (reg.items || []).map(function(m) {
-        return '<span class="det-item merm">' + m.cantidad + '× ' + m.producto + ': ' + fmt(m.total) + '</span>';
+        return '<span class="det-item merm">' + m.cantidad + '× ' + esc(m.producto) + ': ' + fmt(m.total) + '</span>';
       }).join("");
       card.innerHTML =
         '<div class="reg-header">' +
@@ -971,12 +973,12 @@ function abrirModalEditar(reg) {
       row.innerHTML =
         '<label>' + r.label + '</label>' +
         '<div class="input-wrap"><span class="prefix">$</span>' +
-        '<input type="number" id="edit-v-' + r.id + '" min="0" step="1" value="' + val + '" placeholder="0"></div>';
+        '<input type="number" id="edit-v-' + r.id + '" min="0" step="1" value="' + esc(val) + '" placeholder="0"></div>';
       cuerpo.appendChild(row);
     });
     var notaRow = document.createElement("div");
     notaRow.className = "nota-wrap";
-    notaRow.innerHTML = '<label>Nota (opcional)</label><textarea id="edit-nota">' + (reg.nota || "") + '</textarea>';
+    notaRow.innerHTML = '<label>Nota (opcional)</label><textarea id="edit-nota">' + esc(reg.nota || "") + '</textarea>';
     cuerpo.appendChild(notaRow);
 
     btnOk.onclick = function() {
@@ -1053,7 +1055,7 @@ function initConexion() {
   });
 }
 
-// ===================== HISTORIAL (ÚLTIMOS 3 DÍAS HÁBILES) =====================
+// ===================== HISTORIAL (ÚLTIMOS 7/15/30 DÍAS) =====================
 function ultimosDiasCalendarioSucursal() {
   var dias = [];
   var d = new Date(fechaOperativa() + "T12:00:00");
@@ -1093,7 +1095,7 @@ function renderHistorialSucursal() {
           return '<span class="det-item ing">' + (rub ? rub.label : e[0]) + ': ' + fmt(e[1]) + '</span>';
         }).join("");
         card.innerHTML =
-          '<div class="reg-header"><span class="reg-hora">' + hora + '</span><span class="reg-tipo-badge ventas">Ventas</span>' + (reg.nota ? '<span class="reg-nota">' + reg.nota + '</span>' : '') + '</div>' +
+          '<div class="reg-header"><span class="reg-hora">' + hora + '</span><span class="reg-tipo-badge ventas">Ventas</span>' + (reg.nota ? '<span class="reg-nota">' + esc(reg.nota) + '</span>' : '') + '</div>' +
           '<div class="reg-detalles">' + chips + '</div>' +
           '<div class="reg-totales"><span class="ing-tot">+' + fmt(reg.totalVentas) + '</span></div>';
 
@@ -1101,10 +1103,10 @@ function renderHistorialSucursal() {
         card.className = "reg-card mov-card";
         var egChips = (reg.egresosDetalle || []).map(function(eg) {
           var lbl = eg.cat === "transferencia-inter" ? "→ Transferencia" : (CATS_EG[eg.cat] || eg.cat);
-          return '<span class="det-item eg">' + lbl + (eg.detalle ? " · " + eg.detalle : "") + ': ' + fmt(eg.monto) + '</span>';
+          return '<span class="det-item eg">' + lbl + (eg.detalle ? " · " + esc(eg.detalle) : "") + ': ' + fmt(eg.monto) + '</span>';
         }).join("");
         var intChips = (reg.ingresosInter || []).map(function(inter) {
-          return '<span class="det-item inter">↑ ' + inter.origen + (inter.detalle ? " · " + inter.detalle : "") + ': ' + fmt(inter.monto) + '</span>';
+          return '<span class="det-item inter">↑ ' + inter.origen + (inter.detalle ? " · " + esc(inter.detalle) : "") + ': ' + fmt(inter.monto) + '</span>';
         }).join("");
         var tots = "";
         if (reg.totalEgresos)  tots += '<span class="eg-tot">-'  + fmt(reg.totalEgresos)  + '</span>';
@@ -1117,7 +1119,7 @@ function renderHistorialSucursal() {
       } else if (reg.tipo === "merma") {
         card.className = "reg-card merma-card";
         var mChips = (reg.items || []).map(function(m) {
-          return '<span class="det-item merm">' + m.cantidad + '× ' + m.producto + ': ' + fmt(m.total) + '</span>';
+          return '<span class="det-item merm">' + m.cantidad + '× ' + esc(m.producto) + ': ' + fmt(m.total) + '</span>';
         }).join("");
         card.innerHTML =
           '<div class="reg-header"><span class="reg-hora">' + hora + '</span><span class="reg-tipo-badge merma">Merma</span></div>' +
@@ -1130,7 +1132,7 @@ function renderHistorialSucursal() {
   });
 
   if (!hayAlgo) {
-    cont.innerHTML = '<div class="empty-state">Sin registros en los últimos 3 días.</div>';
+    cont.innerHTML = '<div class="empty-state">Sin registros en el período seleccionado.</div>';
   }
 }
 
@@ -1166,7 +1168,7 @@ function conectarFirebase(sucursal) {
     saldoRef.on("value", function(snapTotal) {
       lastSnapTotal = snapTotal; // cachear para re-renders por cambio de objetivo
 
-      // Historial: últimos 3 días hábiles
+      // Historial: últimos 7/15/30 días
       var diasHist = ultimosDiasCalendarioSucursal();
       registrosHist = {};
       diasHist.forEach(function(fecha) {

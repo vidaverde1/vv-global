@@ -55,6 +55,8 @@ var OBJETIVOS_DEFAULT = {
   BEIRO: 23000000, GOYENA:   26000000
 };
 
+function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function(c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+
 // ===================== ESTADO =====================
 var allData           = {};
 var allFacturas       = [];
@@ -683,7 +685,7 @@ function renderFeed() {
       '<div class="feed-suc" style="background:' + c + '20;color:' + c + '">' + suc + '</div>' +
       '<div class="feed-info">' +
         '<span class="feed-time">' + fdia + ' ' + hora + '</span>' +
-        (r.nota ? '<span class="feed-nota">' + r.nota + '</span>' : '') +
+        (r.nota ? '<span class="feed-nota">' + esc(r.nota) + '</span>' : '') +
       '</div>' +
       numsHtml;
     container.appendChild(div);
@@ -1193,8 +1195,8 @@ function renderFacturas() {
     var tr = document.createElement("tr");
     tr.innerHTML =
       "<td><span class='fact-suc-badge' style='color:" + c + "'>" + f.sucursal + "</span></td>" +
-      "<td class='fact-td-prov'>"  + (f.proveedor || "—") + "</td>" +
-      "<td class='fact-td-num'>"   + (f.numero    || "—") + "</td>" +
+      "<td class='fact-td-prov'>"  + esc(f.proveedor || "—") + "</td>" +
+      "<td class='fact-td-num'>"   + esc(f.numero    || "—") + "</td>" +
       "<td class='fact-td-fecha'>" + fechaDDMMAAAA(f.fecha) + "</td>" +
       "<td class='fact-td-monto'>" + fmtFull(f.monto || 0) + "</td>" +
       "<td><button class='fact-btn-del' data-id='" + f._id + "'>✕</button></td>";
@@ -1377,7 +1379,7 @@ function showEgresoDetail(suc, rubroId, fechas) {
       return '<tr style="border-bottom:1px solid var(--border)">' +
         '<td style="padding:7px 6px">' + r.fecha.split("-").reverse().join("/") + '</td>' +
         '<td style="padding:7px 6px;color:var(--muted);font-size:.78rem">' + hora + '</td>' +
-        '<td style="padding:7px 6px;color:var(--muted)">' + (r.nota || '—') + '</td>' +
+        '<td style="padding:7px 6px;color:var(--muted)">' + esc(r.nota || '—') + '</td>' +
         '<td style="padding:7px 6px;text-align:right;color:var(--red);font-weight:600">' + fmtFull(r.monto) + '</td>' +
         '</tr>';
     }).join("");
@@ -1566,9 +1568,9 @@ function renderMerma() {
         var motTop = Object.keys(it.motivos).sort(function(a, b) { return it.motivos[b] - it.motivos[a]; })[0];
         rows +=
           '<tr>' +
-            '<td class="merma-td-prod">'   + prod + '</td>' +
+            '<td class="merma-td-prod">'   + esc(prod) + '</td>' +
             '<td class="merma-td-num">'    + it.cantidad + ' u.</td>' +
-            '<td class="merma-td-motivo">' + (MOTIVOS_MERMA[motTop] || motTop) + '</td>' +
+            '<td class="merma-td-motivo">' + esc(MOTIVOS_MERMA[motTop] || motTop) + '</td>' +
             '<td class="merma-td-tot">'    + fmtM(it.total) + '</td>' +
             '<td class="merma-td-bar"><div class="merma-mini-bar"><div style="width:' + pct + '%;background:' + c + '"></div></div></td>' +
           '</tr>';
@@ -1893,8 +1895,6 @@ function initSemanal() {
 
 // ===================== CIERRE DE CAJA =====================
 
-// ===================== CIERRE DE CAJA =====================
-
 // Para una sucursal: último cierre registrado (cualquier fecha) + todos los
 // movimientos de efectivo registrados DESPUÉS de ese cierre.
 // Si no hay cierre: suma todos los movimientos históricos.
@@ -1968,7 +1968,7 @@ function renderCierreStrip(cierresSnap) {
         '<div class="cs-row"><span class="cs-lbl">Contado</span><span class="cs-val cs-contado-verde">' + fmtM(d.contado) + '</span></div>' +
         '<div class="cs-row"><span class="cs-lbl">Sistema</span><span class="cs-val">' + fmtM(d.saldoSistema) + '</span></div>' +
         '<div class="cs-row"><span class="cs-lbl">Diferencia</span><span class="cs-val" style="color:' + difColor + '">' + difSign + fmtM(Math.abs(d.diferencia)) + '</span></div>' +
-        (d.nota ? '<div class="cs-nota">' + d.nota + '</div>' : '');
+        (d.nota ? '<div class="cs-nota">' + esc(d.nota) + '</div>' : '');
     } else {
       // Sin cierre hoy: mostrar saldo acumulado en tiempo real
       var efvoColor = efvoAcum >= 0 ? "var(--green)" : "var(--red)";
@@ -2129,7 +2129,7 @@ function renderDeudas() {
     var selectedId = pagoDeuda.value;
     var elegibles = allDeudas.filter(function(d) { return d.categoria === pagoCat.value && (d.montoActual || 0) > 0; });
     pagoDeuda.innerHTML = '<option value="">Seleccioná una deuda</option>' + elegibles.map(function(d) {
-      return '<option value="' + d._id + '">' + (d.descripcion || CATS_DEUDA[d.categoria]) + ' · ' + fmtFull(d.montoActual) + '</option>';
+      return '<option value="' + d._id + '">' + esc(d.descripcion || CATS_DEUDA[d.categoria]) + ' · ' + fmtFull(d.montoActual) + '</option>';
     }).join("");
     if (elegibles.some(function(d) { return d._id === selectedId; })) pagoDeuda.value = selectedId;
   }
@@ -2185,7 +2185,7 @@ function renderDeudas() {
       if (d.pagos && d.pagos.length) {
         pagosHtml = '<div class="deuda-pagos">' +
           d.pagos.map(function(p) {
-            return '<span class="deuda-pago-chip">−' + fmtM(p.monto) + ' · ' + fechaDDMMAAAA(p.fecha) + (p.detalle ? ' · ' + p.detalle : '') + '</span>';
+            return '<span class="deuda-pago-chip">−' + fmtM(p.monto) + ' · ' + fechaDDMMAAAA(p.fecha) + (p.detalle ? ' · ' + esc(p.detalle) : '') + '</span>';
           }).join("") +
         '</div>';
       }
@@ -2193,7 +2193,7 @@ function renderDeudas() {
         '<div class="deuda-item">' +
           '<div class="deuda-item-top">' +
             '<div class="deuda-item-left">' +
-              (d.descripcion ? '<div class="deuda-desc">' + d.descripcion + '</div>' : '') +
+              (d.descripcion ? '<div class="deuda-desc">' + esc(d.descripcion) + '</div>' : '') +
               '<div class="deuda-fecha">Registrada: ' + fechaDDMMAAAA(d.fecha) + '</div>' +
             '</div>' +
             '<div class="deuda-item-right">' +
@@ -2364,11 +2364,11 @@ function renderSueldos() {
     var pagado = emp.pagadoCiclo === ciclo;
     var tr     = document.createElement("tr");
     tr.innerHTML =
-      "<td class='emp-td-id'>"     + (emp.id     || "—") + "</td>" +
-      "<td class='emp-td-nombre'>" + (emp.nombre  || "—") + "</td>" +
-      "<td class='emp-td-dni'>"    + (emp.dni     || "—") + "</td>" +
-      "<td><span class='fact-suc-badge' style='color:" + c + "'>" + (emp.sucursal || "—") + "</span></td>" +
-      "<td class='emp-td-puesto'>" + (emp.puesto  || "—") + "</td>" +
+      "<td class='emp-td-id'>"     + esc(emp.id     || "—") + "</td>" +
+      "<td class='emp-td-nombre'>" + esc(emp.nombre  || "—") + "</td>" +
+      "<td class='emp-td-dni'>"    + esc(emp.dni     || "—") + "</td>" +
+      "<td><span class='fact-suc-badge' style='color:" + c + "'>" + esc(emp.sucursal || "—") + "</span></td>" +
+      "<td class='emp-td-puesto'>" + esc(emp.puesto  || "—") + "</td>" +
       "<td class='emp-td-sueldo'>" + fmtFull(emp.sueldoBase || 0) + "</td>" +
       "<td style='text-align:center'>" +
         "<input type='checkbox' class='emp-pagado-check' data-id='" + emp._id + "'" + (pagado ? " checked" : "") +
@@ -2670,7 +2670,7 @@ function initFirebase() {
       });
       numeros.sort();
       dlNum.innerHTML = numeros.map(function(n) {
-        return '<option value="' + n.replace(/"/g, '&quot;') + '">';
+        return '<option value="' + esc(n) + '">';
       }).join("");
     }
     if (sectionActual === "facturas")    renderFacturas();
@@ -2778,7 +2778,7 @@ function updateProveedoresDatalist() {
   });
   var sorted = Object.keys(nombres).sort();
   dl.innerHTML = sorted.map(function(n) {
-    return '<option value="' + n.replace(/"/g, "&quot;") + '">';
+    return '<option value="' + esc(n) + '">';
   }).join("");
 }
 
@@ -2812,7 +2812,7 @@ function renderProveedores() {
     var topProveedores = statsAll.filter(function(item) { return item.stats.count > 0; }).sort(function(a, b) { return b.stats.total - a.stats.total; }).slice(0, 5);
     charts.proveedores = new Chart(document.getElementById("chart-prov-top"), {
       type: "bar",
-      data: { labels: topProveedores.map(function(item) { return item.proveedor.nombre; }), datasets: [{ data: topProveedores.map(function(item) { return item.stats.total; }), backgroundColor: "#00e676bb", borderRadius: 4 }] },
+      data: { labels: topProveedores.map(function(item) { return esc(item.proveedor.nombre); }), datasets: [{ data: topProveedores.map(function(item) { return item.stats.total; }), backgroundColor: "#00e676bb", borderRadius: 4 }] },
       options: { indexAxis: "y", responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return fmtFull(ctx.raw); } } } }, scales: { x: { ticks: { color: "#888", callback: function(value) { return fmtM(value); } }, grid: { color: "#26313c" } }, y: { ticks: { color: "#aaa" }, grid: { display: false } } } }
     });
   }
@@ -2820,7 +2820,7 @@ function renderProveedores() {
     '<div class="global-card"><div class="gc-label">Monto del período</div><div class="gc-val">' + fmtFull(totalHistorico) + '</div></div>' +
     '<div class="global-card"><div class="gc-label">Facturas del período</div><div class="gc-val">' + facturasScope.length + '</div></div>' +
     '<div class="global-card"><div class="gc-label">Promedio por proveedor</div><div class="gc-val">' + fmtFull(totalConFactura ? totalHistorico / totalConFactura : 0) + '</div></div>' +
-    '<div class="global-card"><div class="gc-label">Mayor facturación</div><div class="gc-val">' + (topProveedor ? topProveedor.proveedor.nombre + ' · ' + fmtM(topProveedor.stats.total) : '—') + '</div></div>';
+    '<div class="global-card"><div class="gc-label">Mayor facturación</div><div class="gc-val">' + (topProveedor ? esc(topProveedor.proveedor.nombre) + ' · ' + fmtM(topProveedor.stats.total) : '—') + '</div></div>';
 
   var unmatched = rawAll.filter(function(n) { return !lookup[n.toLowerCase()]; });
   var sugerencias = findSugerencias(unmatched);
@@ -2842,10 +2842,10 @@ function renderProveedores() {
       card.className = "prov-sug-card";
       card.innerHTML =
         '<div class="prov-sug-nombres">' +
-          '<span class="prov-sug-name">' + pair[0] + '</span>' +
+          '<span class="prov-sug-name">' + esc(pair[0]) + '</span>' +
           '<span class="prov-sug-badge">' + getCountForRaw(pair[0]) + '</span>' +
           '<span class="prov-sug-sep">·</span>' +
-          '<span class="prov-sug-name">' + pair[1] + '</span>' +
+          '<span class="prov-sug-name">' + esc(pair[1]) + '</span>' +
           '<span class="prov-sug-badge">' + getCountForRaw(pair[1]) + '</span>' +
         '</div>' +
         '<button class="prov-btn-unif" data-a="' + encodeURIComponent(pair[0]) + '" data-b="' + encodeURIComponent(pair[1]) + '">Unificar</button>';
@@ -2876,7 +2876,7 @@ function renderProveedores() {
       var chip = document.createElement("div");
       chip.className = "prov-nuevo-chip";
       chip.innerHTML =
-        '<span class="prov-nuevo-name">' + raw + '</span>' +
+        '<span class="prov-nuevo-name">' + esc(raw) + '</span>' +
         '<span class="prov-sug-badge">' + getCountForRaw(raw) + ' fact.</span>' +
         '<button class="prov-btn-asig" data-raw="' + encodeURIComponent(raw) + '">Asignar a existente</button>' +
         '<button class="prov-btn-crear" data-raw="' + encodeURIComponent(raw) + '">+ Crear proveedor</button>';
@@ -2926,11 +2926,11 @@ function renderProveedores() {
     card.className = "prov-card";
     var variasHtml = (p.variantes || []).map(function(v) {
       return '<span class="prov-var-chip" data-pid="' + p._id + '" data-v="' + encodeURIComponent(v) + '">' +
-        v + ' <button class="prov-var-del" title="Quitar variante">✕</button></span>';
+        esc(v) + ' <button class="prov-var-del" title="Quitar variante">✕</button></span>';
     }).join("");
     card.innerHTML =
       '<div class="prov-card-header">' +
-        '<div class="prov-card-nombre">' + p.nombre + '</div>' +
+        '<div class="prov-card-nombre">' + esc(p.nombre) + '</div>' +
         '<div class="prov-card-acciones">' +
           '<button class="prov-btn-edit" data-id="' + p._id + '">✎ Renombrar</button>' +
           '<button class="prov-btn-del" data-id="' + p._id + '" title="Eliminar proveedor">✕</button>' +
@@ -2942,7 +2942,7 @@ function renderProveedores() {
         '<span>' + fmtFull(stats.total) + '</span>' +
       '</div>' +
       '<div class="prov-card-tags">' +
-        (p.etiquetas || []).map(function(tag) { return '<span class="prov-tag">' + tag + '</span>'; }).join("") +
+        (p.etiquetas || []).map(function(tag) { return '<span class="prov-tag">' + esc(tag) + '</span>'; }).join("") +
         '<button class="prov-btn-tags" data-id="' + p._id + '">Etiquetas</button>' +
       '</div>' +
       '<div class="prov-card-variantes">' + variasHtml + '</div>';
@@ -3007,10 +3007,10 @@ function abrirModalUnificar(nameA, nameB) {
   abrirProvModal("Unificar proveedores",
     '<p class="prov-modal-desc">¿Cuál es el nombre canónico para este proveedor?</p>' +
     '<div class="prov-radio-group">' +
-      '<label class="prov-radio-row"><input type="radio" name="prov-canon" value="' + nameA + '" checked> ' + nameA + '</label>' +
-      '<label class="prov-radio-row"><input type="radio" name="prov-canon" value="' + nameB + '"> ' + nameB + '</label>' +
+      '<label class="prov-radio-row"><input type="radio" name="prov-canon" value="' + esc(nameA) + '" checked> ' + esc(nameA) + '</label>' +
+      '<label class="prov-radio-row"><input type="radio" name="prov-canon" value="' + esc(nameB) + '"> ' + esc(nameB) + '</label>' +
       '<label class="prov-radio-row"><input type="radio" name="prov-canon" value="__custom__"> Personalizado: ' +
-        '<input type="text" id="prov-canon-custom" placeholder="Escribí el nombre" onclick="this.previousElementSibling.checked=true" class="prov-text-inline">' +
+        '<input type="text" id="prov-canon-custom" placeholder="Escribí el nombre" class="prov-text-inline">' +
       '</label>' +
     '</div>',
     function() {
@@ -3023,12 +3023,18 @@ function abrirModalUnificar(nameA, nameB) {
       firebase.database().ref("config/proveedores").push({ nombre: canonical, variantes: [nameA, nameB] });
     }
   );
+  var customInput = document.getElementById("prov-canon-custom");
+  if (customInput) {
+    customInput.addEventListener("click", function() {
+      document.querySelector('input[name="prov-canon"][value="__custom__"]').checked = true;
+    });
+  }
 }
 
 function abrirModalAsignar(rawName) {
   var opts = allProveedores
     .slice().sort(function(a, b) { return a.nombre.localeCompare(b.nombre); })
-    .map(function(p) { return '<option value="' + p._id + '">' + p.nombre + '</option>'; }).join("");
+    .map(function(p) { return '<option value="' + p._id + '">' + esc(p.nombre) + '</option>'; }).join("");
   abrirProvModal('Asignar "' + rawName + '"',
     '<p class="prov-modal-desc">Seleccioná a qué proveedor pertenece este nombre:</p>' +
     '<div class="select-wrap-dark"><select id="prov-asig-select">' +
@@ -3050,7 +3056,7 @@ function abrirModalRenombrar(provId) {
   if (!p) return;
   abrirProvModal("Renombrar proveedor",
     '<p class="prov-modal-desc">Nuevo nombre canónico:</p>' +
-    '<input type="text" id="prov-rename-input" value="' + p.nombre + '" class="prov-text-full">',
+    '<input type="text" id="prov-rename-input" value="' + esc(p.nombre) + '" class="prov-text-full">',
     function() {
       var nuevo = document.getElementById("prov-rename-input").value.trim();
       if (!nuevo) { alert("Ingresá un nombre."); return false; }

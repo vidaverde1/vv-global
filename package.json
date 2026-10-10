@@ -1,5 +1,7 @@
 {
-  "dependencies": {
-    "git": "^0.1.5"
-  }
+  "name": "vv-global",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VV Global - Sistema de gestión de sucursales (PWA)",
+  "license": "UNLICENSED"
 }
