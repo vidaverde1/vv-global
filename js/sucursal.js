@@ -729,6 +729,12 @@ function calcularSaldoDesdeSnap(snapTotal) {
   return saldo;
 }
 
+// Reusa el último snapshot completo de registros; solo descarga si aún no llegó.
+function conSnapTotal(cb) {
+  if (lastSnapTotal) { cb(lastSnapTotal); return; }
+  firebase.database().ref("registros").once("value").then(cb);
+}
+
 function actualizarSaldoBanner(saldo) {
   var banner  = document.getElementById("saldo-efectivo");
   var valEl   = document.getElementById("saldo-efectivo-val");
@@ -1226,7 +1232,7 @@ function conectarFirebase(sucursal) {
       // anterior desde los registros, para que el efectivo no quede en $0.
       if (ultimoContado !== null) {
         saldoCierreUltimo = ultimoContado;
-        firebase.database().ref("registros").once("value", function(snapTotal) {
+        conSnapTotal(function(snapTotal) {
           saldoSistema = saldoCierreUltimo + calcularSaldoDesdeSnap(snapTotal);
           actualizarSaldoBanner(saldoSistema);
           var sistemaEl = document.getElementById("cierre-saldo-sistema");
@@ -1234,7 +1240,7 @@ function conectarFirebase(sucursal) {
         });
       } else {
         // Sin cierre previo: buscar el último día hábil con registros y usarlo como base
-        firebase.database().ref("registros").once("value", function(snapTotal) {
+        conSnapTotal(function(snapTotal) {
           var baseEfvo  = 0;
           var baseFecha = "";
           if (snapTotal.exists()) {

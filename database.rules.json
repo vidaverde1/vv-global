@@ -1,0 +1,64 @@
+{
+  "rules": {
+    "registros": {
+      ".read": "auth != null",
+      "$fecha": {
+        "$sucursal": {
+          ".write": "auth != null",
+          "$registroId": {
+            ".validate": "newData.hasChildren(['tipo', 'timestamp', 'sucursal', 'fecha'])"
+          }
+        }
+      }
+    },
+    "cierres": {
+      ".read": "auth != null",
+      "$fecha": {
+        "$sucursal": {
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['timestamp', 'contado', 'saldoSistema', 'diferencia'])"
+        }
+      }
+    },
+    "facturas": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$facturaId": {
+        ".validate": "newData.hasChildren(['sucursal', 'proveedor', 'fecha', 'monto', 'timestamp'])"
+      }
+    },
+    "deudas": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$deudaId": {
+        ".validate": "newData.hasChildren(['categoria', 'montoOriginal', 'montoActual', 'fecha', 'timestamp'])"
+      }
+    },
+    "deudas_historial": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "empleados": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "config": {
+      "claves": {
+        ".read": "auth != null",
+        ".write": false
+      },
+      "objetivos": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      },
+      "proveedores": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

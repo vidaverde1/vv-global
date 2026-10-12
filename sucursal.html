@@ -14,9 +14,12 @@
   <link rel="apple-touch-icon" href="icons/icon-sucursal-192.png">
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="config.js"></script>
   <script>
     firebase.initializeApp(VV_CONFIG.firebase);
+    try { firebase.database().enablePersistence({ synchronizeTabs: true }).catch(function(){}); } catch (e) {}
+    try { firebase.auth().signInAnonymously().catch(function(e) { console.warn("[VV] Auth anónimo no habilitado:", e && e.code); }); } catch (e) {}
   </script>
 </head>
 

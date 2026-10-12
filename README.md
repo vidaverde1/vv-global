@@ -125,3 +125,13 @@ Realtime Database → config/claves/
 ## 🏪 Sucursales
 
 `NAZCA` · `OLAZABAL` · `CUENCA` · `BEIRO` · `GOYENA`
+
+---
+
+## 🔒 Seguridad y calidad
+
+- **Offline:** persistencia de Firebase habilitada (`synchronizeTabs`); las cargas se encolan sin conexión.
+- **Auth:** login anónimo automático (no bloqueante). Ver [`SECURITY.md`](SECURITY.md) para habilitar reglas y migrar a autenticación real.
+- **Reglas:** [`database.rules.json`](database.rules.json) — copiar/pegar en Firebase Console → Realtime Database → Reglas.
+- **CI:** `.github/workflows/ci.yml` valida la sintaxis JS en cada push (`npm run lint`).
+- **Rendimiento:** el saldo reutiliza el snapshot de `registros` ya cargado, evitando descargas completas repetidas.

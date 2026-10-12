@@ -3,5 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "VV Global - Sistema de gestión de sucursales (PWA)",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "scripts": {
+    "lint": "node --check js/sucursal.js && node --check js/dashboard.js && node --check js/sw.js",
+    "test": "npm run lint"
+  }
 }
