@@ -995,9 +995,16 @@ function renderObjetivos(obj) {
     var card = document.createElement("div");
     card.className = "obj-card";
     card.setAttribute("data-suc", suc);
-    var totalCompras = allFacturas.reduce(function(total, factura) {
+    var comprasFacturas = allFacturas.reduce(function(total, factura) {
       return total + (factura.sucursal === suc && factura.fecha && factura.fecha.slice(0, 7) === mes ? Number(factura.monto) || 0 : 0);
     }, 0);
+    // Egresos de efectivo del mes (movimientos de caja), excepto la categoría "retiro"
+    var comprasEgresos = dias.reduce(function(total, fecha) {
+      return total + RUBROS_EG.reduce(function(sub, rubro) {
+        return rubro.id === "retiro" ? sub : sub + sumRubro(fecha, suc, "egresos", rubro.id);
+      }, 0);
+    }, 0);
+    var totalCompras = comprasFacturas + comprasEgresos;
     var totalMerma = dias.reduce(function(total, fecha) {
       return total + getMermaRegs(fecha, suc).reduce(function(subtotal, reg) { return subtotal + (reg.totalMerma || 0); }, 0);
     }, 0);
@@ -1015,11 +1022,11 @@ function renderObjetivos(obj) {
       '</div>' +
       promHtml +
       '<div class="obj-sucursal-resumen">' +
-        '<div><span>Ventas</span><strong>' + fmtM(acum) + '</strong></div>' +
-        '<div><span>Compras del mes</span><strong>' + fmtM(totalCompras) + '</strong></div>' +
-        '<div><span>Empleados registrados</span><strong>' + empleadosSucursal.length + '</strong></div>' +
-        '<div><span>Merma del mes</span><strong>' + fmtM(totalMerma) + '</strong></div>' +
-        '<div><span>Sueldo base actual</span><strong>' + fmtM(sueldoBaseSucursal) + '</strong></div>' +
+        '<div class="obj-res-item"><span>Ventas del mes</span><strong>' + fmtM(acum) + '</strong></div>' +
+        '<div class="obj-res-item" title="Facturas: ' + fmtFull(comprasFacturas) + ' · Egresos efectivo: ' + fmtFull(comprasEgresos) + '"><span>Compras del mes</span><strong>' + fmtM(totalCompras) + '</strong></div>' +
+        '<div class="obj-res-item"><span>Empleados</span><strong>' + empleadosSucursal.length + '</strong></div>' +
+        '<div class="obj-res-item"><span>Merma del mes</span><strong>' + fmtM(totalMerma) + '</strong></div>' +
+        '<div class="obj-res-item"><span>Sueldo base</span><strong>' + fmtM(sueldoBaseSucursal) + '</strong></div>' +
       '</div>';
     cont.appendChild(card);
   });
@@ -1830,7 +1837,7 @@ function renderSemanal() {
   var comprasSems = semanas.map(function(s) {
     var factTotal = facturas
       .filter(function(f) { return f.fecha && f.fecha >= s.desde && f.fecha <= s.hasta; })
-      .reduce(function(a, f) { return a + (f.monto || 0); }, 0);
+      .reduce(function(a, f) { return a + (Number(f.monto) || 0); }, 0);
     var egTotal = 0;
     Object.keys(allData).forEach(function(fecha) {
       if (fecha < s.desde || fecha > s.hasta) return;
@@ -2676,6 +2683,7 @@ function initFirebase() {
     if (sectionActual === "facturas")    renderFacturas();
     if (sectionActual === "proveedores") renderProveedores();
     if (sectionActual === "objetivos")   renderObjetivos();
+    renderSemanal();
   });
 }
 

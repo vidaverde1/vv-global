@@ -1,5 +1,5 @@
 // Service Worker — VV Global PWA
-const CACHE_NAME = "vv-global-v26";
+const CACHE_NAME = "vv-global-v29";
 const BASE = (self.location.pathname.replace(/\/js\/sw\.js$/, "") || "/").replace(/\/$/, "") || "/";
 const APP_BASE = BASE === "/" ? "" : BASE;
 
@@ -14,6 +14,7 @@ self.addEventListener("install", function(event) {
         APP_BASE + "/manifest-dashboard.json",
         APP_BASE + "/styles/sucursal.css",
         APP_BASE + "/styles/dashboard.css",
+        APP_BASE + "/js/fecha-input.js",
         APP_BASE + "/js/sucursal.js",
         APP_BASE + "/js/dashboard.js",
         APP_BASE + "/icons/icon-sucursal-192.png",
