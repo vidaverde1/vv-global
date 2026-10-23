@@ -13,9 +13,10 @@ var RUBROS_ING = [
   { id: "efectivo",      label: "Efectivo" },
   { id: "debito",        label: "Débito" },
   { id: "credito",       label: "Crédito" },
-  { id: "mercadopago",   label: "Mercado Pago / QR" },
-  { id: "linkpago",      label: "Link de Pago" },
-  { id: "transferencia", label: "Transferencia" }
+  { id: "prepaga",       label: "Prepaga" },
+  { id: "mercadopago",   label: "QR" },
+  { id: "transferencia", label: "Transferencia" },
+  { id: "linkpago",      label: "Link de Pago" }
 ];
 
 var RUBROS_EG = [
@@ -1861,7 +1862,8 @@ function renderSemanal() {
           var v = (r.tipo === "ventas") ? (r.ventas || {}) : (!r.tipo ? (r.ingresos || {}) : {});
           efectivo += v["efectivo"]      || 0;
           digital  += (v["debito"]        || 0) + (v["credito"]       || 0) +
-                      (v["transferencia"] || 0) + (v["mercadopago"]   || 0);
+                      (v["prepaga"]       || 0) + (v["mercadopago"]   || 0) +
+                      (v["transferencia"] || 0) + (v["linkpago"]      || 0);
         });
       });
     });

@@ -5,9 +5,10 @@ var RUBROS_VENTAS = [
   { id: "efectivo",      label: "Efectivo" },
   { id: "debito",        label: "Débito" },
   { id: "credito",       label: "Crédito" },
-  { id: "mercadopago",   label: "Mercado Pago / QR" },
-  { id: "linkpago",      label: "Link de Pago" },
-  { id: "transferencia", label: "Transferencia" }
+  { id: "prepaga",       label: "Prepaga" },
+  { id: "mercadopago",   label: "QR" },
+  { id: "transferencia", label: "Transferencia" },
+  { id: "linkpago",      label: "Link de Pago" }
 ];
 
 var CATS_EG = {
